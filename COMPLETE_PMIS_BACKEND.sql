@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   aadhaar_back_url    TEXT,
   pan_card_url        TEXT,        -- Added: PAN Card support
   signature_url       TEXT,
+  ip_address          TEXT,
   created_at          TIMESTAMPTZ DEFAULT TIMEZONE('utc'::TEXT, NOW())
 );
 
@@ -61,6 +62,7 @@ ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS aadhaar_front_url   TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS aadhaar_back_url    TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS pan_card_url        TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS signature_url       TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS ip_address          TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS created_at          TIMESTAMPTZ DEFAULT TIMEZONE('utc'::TEXT, NOW());
 
 -- Constraints

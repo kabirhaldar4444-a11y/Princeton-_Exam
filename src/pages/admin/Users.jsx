@@ -13,8 +13,8 @@ const Users = () => {
   const { showAlert } = useAlert();
   const { profile } = useAuth();
   
-  // Super Admin Check (strictly admin@princeton.com as requested)
-  const isSuperAdmin = profile?.email === 'admin@princeton.com';
+  // Super Admin Check
+  const isSuperAdmin = profile?.role === 'super_admin' || profile?.email === 'admin@princeton.com';
   const [activeTab, setActiveTab] = useState('candidates'); // 'candidates', 'admins'
   const [users, setUsers] = useState([]);
   const [exams, setExams] = useState([]);
@@ -283,7 +283,8 @@ const Users = () => {
                 <CandidateCard 
                   key={u.id} 
                   user={u} 
-                  canManage={isSuperAdmin || u.role === 'candidate'}
+                  canView={true}
+                  canManage={true}
                   onView={() => setViewingUser(u)}
                   onEdit={() => setEditingUser(u)}
                   onDelete={() => setUserToDelete(u)}
@@ -322,12 +323,14 @@ const Users = () => {
         exams={exams} 
         onClose={() => setEditingUser(null)} 
         onSave={handleUpdateProfile} 
+        isSuperAdmin={isSuperAdmin}
       />
 
       <ViewCandidateDrawer 
         user={viewingUser} 
         onClose={() => setViewingUser(null)} 
         onViewDoc={setGlobalViewingDoc}
+        isSuperAdmin={isSuperAdmin}
       />
 
       <DeleteConfirmModal 
@@ -355,7 +358,7 @@ const StatBox = ({ label, value }) => (
   </div>
 );
 
-const CandidateCard = ({ user, onView, onEdit, onDelete, canManage }) => (
+const CandidateCard = ({ user, onView, onEdit, onDelete, canManage, canView }) => (
   <motion.div 
     layout
     initial={{ opacity: 0, y: 10 }}
@@ -386,9 +389,11 @@ const CandidateCard = ({ user, onView, onEdit, onDelete, canManage }) => (
 
     <div className="flex items-center justify-between pt-4 border-t border-slate-100 border-dashed mt-1 relative z-10">
       <div className="flex gap-2">
-        <button onClick={onView} className="p-2 rounded-xl bg-slate-50 text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all border border-slate-100 hover:border-blue-100 group/icon" title="View Details">
-          <Eye className="w-4 h-4 group-hover/icon:scale-110 transition-transform" />
-        </button>
+        {canView && (
+          <button onClick={onView} className="p-2 rounded-xl bg-slate-50 text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all border border-slate-100 hover:border-blue-100 group/icon" title="View Details">
+            <Eye className="w-4 h-4 group-hover/icon:scale-110 transition-transform" />
+          </button>
+        )}
         {canManage && (
           <>
             <button onClick={onEdit} className="p-2 rounded-xl bg-slate-50 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all border border-slate-100 hover:border-emerald-100 group/icon" title="Edit User">
@@ -400,9 +405,11 @@ const CandidateCard = ({ user, onView, onEdit, onDelete, canManage }) => (
           </>
         )}
       </div>
-      <button className={`p-2 rounded-xl border transition-all ${user.is_exam_locked ? 'bg-rose-50 text-rose-500 border-rose-100' : 'bg-slate-50 text-slate-300 border-slate-100 hover:bg-slate-100'}`} title={user.is_exam_locked ? "Account Locked" : "Account Active"}>
-        {user.is_exam_locked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
-      </button>
+      {canManage && (
+        <button className={`p-2 rounded-xl border transition-all ${user.is_exam_locked ? 'bg-rose-50 text-rose-500 border-rose-100' : 'bg-slate-50 text-slate-300 border-slate-100 hover:bg-slate-100'}`} title={user.is_exam_locked ? "Account Locked" : "Account Active"}>
+          {user.is_exam_locked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+        </button>
+      )}
     </div>
   </motion.div>
 );
@@ -663,7 +670,7 @@ const CreateUserModal = ({ isOpen, onClose, newUser, setNewUser, handleCreateUse
 };
 
 
-const EditCandidateModal = ({ user, exams, onClose, onSave }) => {
+const EditCandidateModal = ({ user, exams, onClose, onSave, isSuperAdmin }) => {
   const [formData, setFormData] = useState({
     full_name: '',
     allotted_exam_ids: [],
@@ -815,16 +822,31 @@ const EditCandidateModal = ({ user, exams, onClose, onSave }) => {
               </div>
 
               {/* Identity Verification */}
-              <div>
+              <div className="mt-12">
                 <div className="flex items-center gap-3 mb-8">
                   <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100"><Shield className="w-5 h-5" /></div>
                   <h3 className="text-2xl font-black text-slate-800">Identity Verification</h3>
                 </div>
-                <div className="grid md:grid-cols-3 gap-6">
-                  <VerificationCard label="PROFILE PHOTO" url={user.live_photo_url || user.profile_photo_url} onView={() => setGlobalViewingDoc({ label: "PROFILE PHOTO", url: user.live_photo_url || user.profile_photo_url })} />
-                  <VerificationCard label="AADHAAR FRONT" url={user.aadhaar_front_url} onView={() => setGlobalViewingDoc({ label: "AADHAAR FRONT", url: user.aadhaar_front_url })} />
-                  <VerificationCard label="AADHAAR BACK" url={user.aadhaar_back_url} onView={() => setGlobalViewingDoc({ label: "AADHAAR BACK", url: user.aadhaar_back_url })} />
-                </div>
+
+                {isSuperAdmin ? (
+                  <div className="grid md:grid-cols-3 gap-6">
+                    <VerificationCard label="PROFILE PHOTO" url={user.live_photo_url || user.profile_photo_url} onView={() => setGlobalViewingDoc({ label: "PROFILE PHOTO", url: user.live_photo_url || user.profile_photo_url })} />
+                    <VerificationCard label="AADHAAR FRONT" url={user.aadhaar_front_url} onView={() => setGlobalViewingDoc({ label: "AADHAAR FRONT", url: user.aadhaar_front_url })} />
+                    <VerificationCard label="AADHAAR BACK" url={user.aadhaar_back_url} onView={() => setGlobalViewingDoc({ label: "AADHAAR BACK", url: user.aadhaar_back_url })} />
+                    <VerificationCard label="PAN CARD" url={user.pan_card_url} onView={() => setGlobalViewingDoc({ label: "PAN CARD", url: user.pan_card_url })} />
+                    <VerificationCard label="SIGNATURE" url={user.signature_url} onView={() => setGlobalViewingDoc({ label: "SIGNATURE", url: user.signature_url })} />
+                  </div>
+                ) : (
+                  <div className="bg-slate-50/50 backdrop-blur-sm p-12 rounded-[2.5rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-center gap-5 relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="w-20 h-20 bg-white text-blue-600 rounded-3xl flex items-center justify-center shadow-xl shadow-blue-500/10 border border-slate-100 relative z-10 transition-transform group-hover:scale-110">
+                      <Lock className="w-10 h-10" />
+                    </div>
+                    <div className="relative z-10">
+                      <h3 className="text-2xl font-black text-slate-800 mb-2">Privacy Shield Active</h3>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Allotted Exams */}
@@ -1020,9 +1042,11 @@ const DeleteConfirmModal = ({ user, onClose, onConfirm }) => {
 }
 
 // Side Drawer Modal for robust View Profile
-const ViewCandidateDrawer = ({ user, onClose, onViewDoc }) => {
+const ViewCandidateDrawer = ({ user, onClose, onViewDoc, isSuperAdmin }) => {
   const [submissions, setSubmissions] = useState([]);
   const [loadingSubs, setLoadingSubs] = useState(false);
+  const [subChanges, setSubChanges] = useState({});
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -1046,6 +1070,53 @@ const ViewCandidateDrawer = ({ user, onClose, onViewDoc }) => {
       console.error(error);
     } finally {
       setLoadingSubs(false);
+    }
+  };
+
+  const updateSubChange = (subId, field, value) => {
+    setSubChanges(prev => ({
+      ...prev,
+      [subId]: { ...(prev[subId] || {}), [field]: value }
+    }));
+  };
+
+  const getSubValue = (sub, field) => {
+    return subChanges[sub.id]?.[field] ?? sub[field];
+  };
+
+  const handleAdjustMark = (sub, delta) => {
+    const current = getSubValue(sub, 'admin_score_override') ?? sub.score;
+    const next = Math.max(0, Math.min(sub.total_questions, current + delta));
+    updateSubChange(sub.id, 'admin_score_override', next);
+  };
+
+  const handlePublish = async (sub) => {
+    setSaving(true);
+    try {
+      const currentScore = getSubValue(sub, 'admin_score_override') ?? sub.score;
+      const isReleased = !getSubValue(sub, 'is_released'); // Toggle
+      
+      const { error } = await supabase
+        .from('submissions')
+        .update({ 
+          admin_score_override: currentScore,
+          is_released: isReleased 
+        })
+        .eq('id', sub.id);
+
+      if (error) throw error;
+      
+      // Update local state
+      setSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, admin_score_override: currentScore, is_released: isReleased } : s));
+      // Clear changes for this sub
+      const newChanges = { ...subChanges };
+      delete newChanges[sub.id];
+      setSubChanges(newChanges);
+      
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -1095,10 +1166,20 @@ const ViewCandidateDrawer = ({ user, onClose, onViewDoc }) => {
                      <Mail className="w-4 h-4" /> {user.email}
                   </div>
                   <div className="flex items-center gap-3 text-slate-600 font-medium">
-                     <Phone className="w-4 h-4" /> {user.phone || '+91 - Not Provided'}
+                     <Phone className="w-4 h-4 text-blue-500" /> 
+                     {isSuperAdmin ? (user.phone || '+91 - Not Provided') : (
+                       <span className="bg-slate-100 px-2 py-0.5 rounded text-[10px] text-slate-400 font-bold uppercase tracking-tighter flex items-center gap-1.5 border border-slate-200">
+                         <Lock className="w-2.5 h-2.5" /> SECURE DATA
+                       </span>
+                     )}
                   </div>
                   <div className="flex items-center gap-3 text-slate-600 font-medium">
-                     <MapPin className="w-4 h-4" /> {user.address || 'Location Not Provided'}
+                     <MapPin className="w-4 h-4 text-blue-500" /> 
+                     {isSuperAdmin ? (user.address || 'Location Not Provided') : (
+                       <span className="bg-slate-100 px-2 py-0.5 rounded text-[10px] text-slate-400 font-bold uppercase tracking-tighter flex items-center gap-1.5 border border-slate-200">
+                         <Lock className="w-2.5 h-2.5" /> PROTECTED LOCATION
+                       </span>
+                     )}
                   </div>
                 </div>
 
@@ -1110,15 +1191,29 @@ const ViewCandidateDrawer = ({ user, onClose, onViewDoc }) => {
 
              {/* Documents Section */}
              <div>
-               <div className="flex items-center gap-3 mb-6">
-                 <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100"><FileText className="w-5 h-5" /></div>
-                 <h3 className="text-2xl font-black text-slate-800">Documents</h3>
-               </div>
-               
-               <div className="grid sm:grid-cols-2 gap-4">
-                  <DocumentWidget label="Aadhar Card (Front)" url={user.aadhaar_front_url} onView={() => onViewDoc({ label: "Aadhar Card (Front)", url: user.aadhaar_front_url })} />
-                  <DocumentWidget label="Aadhar Card (Back)" url={user.aadhaar_back_url} onView={() => onViewDoc({ label: "Aadhar Card (Back)", url: user.aadhaar_back_url })} />
-               </div>
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100"><FileText className="w-5 h-5" /></div>
+                  <h3 className="text-2xl font-black text-slate-800">Documents</h3>
+                </div>
+                
+                {isSuperAdmin ? (
+                  <div className="grid sm:grid-cols-2 gap-4">
+                     <DocumentWidget label="Aadhar Card (Front)" url={user.aadhaar_front_url} onView={() => onViewDoc({ label: "Aadhar Card (Front)", url: user.aadhaar_front_url })} />
+                     <DocumentWidget label="Aadhar Card (Back)" url={user.aadhaar_back_url} onView={() => onViewDoc({ label: "Aadhar Card (Back)", url: user.aadhaar_back_url })} />
+                     <DocumentWidget label="PAN Card" url={user.pan_card_url} onView={() => onViewDoc({ label: "PAN Card", url: user.pan_card_url })} />
+                     <DocumentWidget label="Signature" url={user.signature_url} onView={() => onViewDoc({ label: "Signature", url: user.signature_url })} />
+                  </div>
+                ) : (
+                  <div className="bg-white/50 backdrop-blur-sm p-8 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center gap-4 relative overflow-hidden group">
+                     <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                     <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center border border-blue-100 shadow-inner relative z-10">
+                        <Lock className="w-8 h-8" />
+                     </div>
+                     <div className="relative z-10">
+                        <h4 className="font-black text-slate-800 text-lg mb-1">Access Restricted</h4>
+                     </div>
+                  </div>
+                )}
              </div>
 
              {/* Exam Results Section */}
@@ -1134,13 +1229,23 @@ const ViewCandidateDrawer = ({ user, onClose, onViewDoc }) => {
                  <div className="p-10 text-center text-slate-400 bg-white rounded-3xl border border-slate-100">
                    No exam assessments completed by this candidate yet.
                  </div>
-               ) : (
-                 <div className="space-y-4">
-                    {submissions.map(sub => (
-                       <MockResultCard key={sub.id} submission={sub} />
-                    ))}
-                 </div>
-               )}
+                ) : (
+                  <div className="space-y-4">
+                     {submissions.map(sub => (
+                        <InteractiveResultCard 
+                          key={sub.id} 
+                          submission={sub} 
+                          currentScore={getSubValue(sub, 'admin_score_override') ?? sub.score}
+                          isReleased={getSubValue(sub, 'is_released')}
+                          onAdjust={(d) => handleAdjustMark(sub, d)}
+                          onType={(val) => updateSubChange(sub.id, 'admin_score_override', val)}
+                          onPublish={() => handlePublish(sub)}
+                          isSaving={saving}
+                          hasChanges={!!subChanges[sub.id]}
+                        />
+                     ))}
+                  </div>
+                )}
              </div>
 
              {/* Close Profile Footer */}
@@ -1151,37 +1256,7 @@ const ViewCandidateDrawer = ({ user, onClose, onViewDoc }) => {
              </div>
           </div>
 
-          {/* Nested Document Viewer Overlay */}
-          <AnimatePresence>
-            {viewingDoc && (
-              <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-                <motion.div 
-                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                  className="absolute inset-0 bg-slate-900/80 backdrop-blur-md"
-                  onClick={() => setViewingDoc(null)}
-                />
-                <motion.div 
-                  initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                  className="bg-slate-900 p-2 rounded-3xl shadow-2xl relative z-10 max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden"
-                >
-                  <div className="flex justify-between items-center p-5 border-b border-white/10 shrink-0">
-                    <h4 className="text-white font-bold">{viewingDoc.label}</h4>
-                    <button onClick={() => setViewingDoc(null)} className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-colors">
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-                  <div className="flex-1 overflow-auto rounded-2xl bg-black/50 m-2 flex justify-center items-center">
-                     <img src={viewingDoc.url} alt={viewingDoc.label} className="max-w-full max-h-full object-contain p-2" />
-                  </div>
-                  <div className="p-4 flex justify-end border-t border-white/10 shrink-0">
-                    <a href={viewingDoc.url} download target="_blank" rel="noreferrer" className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-colors flex items-center gap-2 text-sm">
-                       <Download className="w-4 h-4" /> Open Original
-                    </a>
-                  </div>
-                </motion.div>
-              </div>
-            )}
-          </AnimatePresence>
+
 
         </motion.div>
       </div>
@@ -1245,37 +1320,57 @@ const DocumentWidget = ({ label, url, onView }) => (
   </div>
 );
 
-// UI Only Match to the exact design provided by screenshots for Results
-const MockResultCard = ({ submission }) => {
+// Interactive Result Card for View Drawer
+const InteractiveResultCard = ({ submission, currentScore, isReleased, onAdjust, onType, onPublish, isSaving, hasChanges }) => {
   return (
-    <div className="bg-white p-6 rounded-3xl border border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-sm">
+    <div className="bg-white p-6 rounded-3xl border border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-sm hover:border-blue-100 transition-colors">
       <div className="flex items-center gap-4">
-        <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isReleased ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
           <CheckCircle className="w-5 h-5" />
         </div>
         <div>
-          <h4 className="font-black text-lg text-slate-800 leading-tight">{submission.exams?.title || 'Unknown Exam'}</h4>
+          <div className="flex items-center gap-2">
+            <h4 className="font-black text-lg text-slate-800 leading-tight">{submission.exams?.title || 'Unknown Exam'}</h4>
+            {hasChanges && <span className="text-[9px] font-black bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded uppercase">Modified</span>}
+          </div>
           <p className="text-sm text-slate-500 font-medium mt-1">
              Original System Score: <strong className="text-slate-800">{submission.score} / {submission.total_questions}</strong>
           </p>
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row items-center gap-4 md:pl-6 md:border-l border-slate-100 w-full md:w-auto">
+      <div className="flex flex-col sm:flex-row items-center gap-6 md:pl-6 md:border-l border-slate-100 w-full md:w-auto">
         <div className="flex flex-col items-center">
            <label className="text-[10px] font-black uppercase tracking-widest text-blue-500 mb-2">FINAL MARKS</label>
-           <div className="flex items-center bg-white rounded-full border-2 border-slate-100 shadow-inner p-1">
-             <button className="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 transition-colors">-</button>
-             <span className="w-12 text-center font-black text-xl text-slate-800">{submission.admin_score_override ?? submission.score}</span>
-             <button className="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 transition-colors">+</button>
+           <div className="flex items-center bg-slate-50 rounded-full border-2 border-slate-100 shadow-inner p-1 group focus-within:border-blue-400/50 transition-all">
+             <button onClick={() => onAdjust(-1)} className="w-8 h-8 rounded-full hover:bg-white hover:text-blue-600 flex items-center justify-center text-slate-400 transition-all font-black">-</button>
+             <input 
+               type="number"
+               className="w-12 text-center bg-transparent font-black text-xl text-slate-800 focus:outline-none"
+               value={currentScore}
+               onChange={(e) => {
+                 const val = parseInt(e.target.value);
+                 if (!isNaN(val)) onType(Math.max(0, Math.min(submission.total_questions, val)));
+               }}
+             />
+             <button onClick={() => onAdjust(1)} className="w-8 h-8 rounded-full hover:bg-white hover:text-blue-600 flex items-center justify-center text-slate-400 transition-all font-black">+</button>
            </div>
         </div>
-        <div className="flex flex-col gap-2 w-full sm:w-auto">
-          <button className="px-6 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold rounded-xl border border-blue-200 transition-colors text-sm flex items-center justify-center gap-2">
-            <Eye className="w-4 h-4" /> Question Breakdowns
-          </button>
-          <button className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 transition-colors text-sm flex items-center justify-center gap-2">
-            Publish Score
+        <div className="flex flex-col gap-2 w-full sm:w-auto min-w-[140px]">
+          <button 
+            disabled={isSaving}
+            onClick={onPublish}
+            className={`px-6 py-2.5 font-black rounded-xl shadow-lg transition-all text-sm flex items-center justify-center gap-2 ${
+              isReleased 
+                ? 'bg-emerald-500 text-white shadow-emerald-500/20 hover:bg-emerald-600' 
+                : 'bg-blue-600 text-white shadow-blue-500/20 hover:bg-blue-700'
+            } active:scale-95 disabled:opacity-50`}
+          >
+            {isSaving ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              isReleased ? <><CheckCircle className="w-4 h-4" /> Published</> : <><Send className="w-4 h-4" /> Publish Score</>
+            )}
           </button>
         </div>
       </div>

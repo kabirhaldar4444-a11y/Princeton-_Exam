@@ -42,6 +42,7 @@ const Contact = () => {
       });
 
       const data = await response.json();
+      console.log('Contact form response:', data);
       if (data.success) {
         setSuccess(true);
         setForm({ name: '', email: '', subject: '', message: '' });

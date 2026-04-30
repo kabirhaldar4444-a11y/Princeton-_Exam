@@ -24,6 +24,7 @@ import DisclaimerOverlay from '../../components/DisclaimerOverlay';
 import { useAlert } from '../../context/AlertProvider';
 import { indianStatesAndCities } from '../../utils/indiaLocationData';
 import PMISLogo from '../../components/common/PMISLogo';
+import { KYC_LEGAL_ACKNOWLEDGEMENT, GLOBAL_POLICIES_DECLARATION } from '../../utils/legalText';
 
 // --- SEARCHABLE DROPDOWN COMPONENT ---
 const SearchableDropdown = ({ value, onChange, options, placeholder, disabled }) => {
@@ -47,8 +48,8 @@ const SearchableDropdown = ({ value, onChange, options, placeholder, disabled })
         className={`input-premium w-full flex items-center justify-between cursor-pointer transition-all duration-200 ${disabled ? 'opacity-50 pointer-events-none bg-slate-50' : 'bg-white hover:border-primary-500/50 focus-within:ring-2 focus-within:ring-primary-500/50'}`}
         onClick={() => !disabled && setIsOpen(!isOpen)}
       >
-        <span className={value ? 'text-slate-900' : 'text-slate-400'}>{value || placeholder}</span>
-        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+        <span className={`truncate mr-2 ${value ? 'text-slate-900 text-sm' : 'text-slate-400 text-[11px]'}`}>{value || placeholder}</span>
+        <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
       </div>
 
       <AnimatePresence>
@@ -184,13 +185,16 @@ const CompleteProfile = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   
   const [formData, setFormData] = useState({
     fullName: profile?.full_name || '',
     phone: '',
     state: '',
     city: '',
-    addressLine: ''
+    addressLine: '',
+    pincode: '',
+    ipAddress: ''
   });
 
   const [files, setFiles] = useState({
@@ -203,6 +207,122 @@ const CompleteProfile = () => {
 
   const [isCameraOpen, setIsCameraOpen] = useState(false);
 
+  // 0. Modern Background IP Detection (Automatic)
+  useEffect(() => {
+    const fetchIP = async () => {
+      try {
+        // Try Cloudflare first (extremely reliable)
+        const res = await fetch('https://www.cloudflare.com/cdn-cgi/trace');
+        const text = await res.text();
+        const ipMatch = text.match(/ip=([\d.]+)/);
+        if (ipMatch && ipMatch[1]) {
+          setFormData(prev => ({ ...prev, ipAddress: ipMatch[1] }));
+          return;
+        }
+        // Fallback to ipify
+        const res2 = await fetch('https://api.ipify.org?format=json');
+        const data2 = await res2.json();
+        if (data2.ip) setFormData(prev => ({ ...prev, ipAddress: data2.ip }));
+      } catch (err) {
+        console.warn('Silent IP detection failed:', err);
+      }
+    };
+    fetchIP();
+  }, []);
+
+  // 1. PIN Code -> State/City (Auto-fill)
+  useEffect(() => {
+    if (formData.pincode.length === 6) {
+      fetch(`https://api.postalpincode.in/pincode/${formData.pincode}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data && data[0] && data[0].Status === 'Success') {
+            const postOffice = data[0].PostOffice[0];
+            setFormData(prev => ({
+              ...prev,
+              state: postOffice.State,
+              city: postOffice.District || postOffice.Region
+            }));
+            showAlert('Location detected from PIN Code', 'success');
+          }
+        })
+        .catch(err => console.warn('Pincode fetch error:', err));
+    }
+  }, [formData.pincode]);
+
+  // 2. City/State -> PIN Code (Bi-directional Smart Detection)
+  useEffect(() => {
+    // Only attempt if city is selected and pincode is empty or invalid
+    if (formData.city && formData.state && (!formData.pincode || formData.pincode.length < 6)) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        fetch(`https://api.postalpincode.in/postoffice/${formData.city}`, { signal: controller.signal })
+          .then(res => res.json())
+          .then(data => {
+            if (data && data[0] && data[0].Status === 'Success') {
+              const matched = data[0].PostOffice.find(po => po.State.toLowerCase() === formData.state.toLowerCase()) || data[0].PostOffice[0];
+              if (matched && matched.Pincode) {
+                setFormData(prev => ({ ...prev, pincode: matched.Pincode }));
+                showAlert(`Suggested PIN for ${formData.city}`, 'success');
+              }
+            }
+          })
+          .catch(err => {
+            if (err.name !== 'AbortError') console.warn('City PIN fetch error:', err);
+          });
+      }, 800); // Debounce to avoid excessive API calls
+
+      return () => {
+        clearTimeout(timeoutId);
+        controller.abort();
+      };
+    }
+  }, [formData.city, formData.state]);
+
+  const handleDetectLocation = async () => {
+    setIsDetectingLocation(true);
+    
+    const tryDetect = async (url) => {
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.error || data.status === 'fail') throw new Error(data.reason || data.message || 'API Fail');
+      return data;
+    };
+
+    try {
+      // Primary: ipapi.co
+      try {
+        const data = await tryDetect('https://ipapi.co/json/');
+        setFormData(prev => ({
+          ...prev,
+          ipAddress: data.ip,
+          pincode: data.postal || prev.pincode,
+          state: data.region || prev.state,
+          city: data.city || prev.city
+        }));
+        return; // Success
+      } catch (e) {
+        console.warn('Primary IP API failed, trying fallback...', e);
+      }
+
+      // Fallback: ipwho.is
+      const fbData = await tryDetect('https://ipwho.is/');
+      setFormData(prev => ({
+        ...prev,
+        ipAddress: fbData.ip,
+        pincode: fbData.postal || prev.pincode,
+        state: fbData.region || prev.state,
+        city: fbData.city || prev.city
+      }));
+      
+    } catch (err) {
+      console.error('All Location APIs failed:', err);
+      showAlert('Location detection failed. Please enter details manually.', 'error');
+    } finally {
+      setIsDetectingLocation(false);
+    }
+  };
+
   const handleFileUpload = async (file, bucketPath, bucketName = 'aadhaar_cards') => {
     if (!file) return null;
     const fileExt = file.name ? file.name.split('.').pop() : (file.type ? file.type.split('/')[1] : 'png');
@@ -214,21 +334,23 @@ const CompleteProfile = () => {
   };
 
   // --- WEB3FORMS EMAIL NOTIFICATION ---
-  const sendEmailNotification = async ({ email, phone, fullAddress, photoUrl, frontUrl, backUrl, panUrl, signatureUrl }) => {
+  const sendEmailNotification = async ({ fullName, email, phone, fullAddress, ipAddress, photoUrl, frontUrl, backUrl, panUrl, signatureUrl }) => {
     try {
       await fetch('https://api.web3forms.com/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({
-          access_key: import.meta.env.VITE_WEB3FORMS_KEY || '33b16dfe-bac0-40f9-8137-1c00c3b758f8',
+          access_key: import.meta.env.VITE_WEB3FORMS_KEY || '4c65807a-e5d0-46e0-9cbd-70d264618cf1',
           subject: `NEW REGISTRATION: ${email}`,
           from_name: 'Princeton Exam Portal',
           message: `
 NEW CANDIDATE KYC SUBMITTED
 ============================
+Name     : ${fullName}
 Email    : ${email}
 Phone    : +91 ${phone}
 Location : ${fullAddress}
+IP Address: ${ipAddress || 'Not Detected'}
 
 UPLOADED DOCUMENTS
 ------------------
@@ -237,10 +359,33 @@ Aadhaar Front   : ${frontUrl || 'N/A'}
 Aadhaar Back    : ${backUrl  || 'N/A'}
 PAN Card        : ${panUrl   || 'N/A'}
 Signature       : ${signatureUrl || 'N/A'}
+
+=== LEGAL & POLICY ACCEPTANCE ===
+[X] ${fullName} actively checked and agreed to the following terms and policies during KYC submission from IP Address: ${ipAddress || 'Not Detected'}
+
+---------------------------------
+[PART 1] KYC LEGAL ACKNOWLEDGEMENT
+---------------------------------
+${KYC_LEGAL_ACKNOWLEDGEMENT.trim()}
+
+---------------------------------
+✅ ${fullName} has accepted Our LEGAL ACKNOWLEDGEMENT
+---------------------------------
+
+---------------------------------
+[PART 2] MASTER PORTAL DECLARATION
+---------------------------------
+${GLOBAL_POLICIES_DECLARATION.trim()}
+
+---------------------------------
+✅ ${fullName} has accepted Our MASTER PORTAL DECLARATION
+---------------------------------
           `.trim(),
         }),
       });
-    } catch {
+      console.log('KYC Notification sent to Web3Forms successfully');
+    } catch (err) {
+      console.error('Web3Forms Notification Error:', err);
       // Silent fail — registration is already complete
     }
   };
@@ -267,7 +412,7 @@ Signature       : ${signatureUrl || 'N/A'}
         handleFileUpload(files.signature, 'signature', 'candidate_documents')
       ]);
 
-      const fullAddress = `${formData.addressLine ? formData.addressLine + ', ' : ''}${formData.city}, ${formData.state}`;
+      const fullAddress = `${formData.addressLine ? formData.addressLine + ', ' : ''}${formData.city}, ${formData.state} - ${formData.pincode}`;
       const { error } = await supabase.from('profiles').update({
         phone: formData.phone,
         address: fullAddress,
@@ -283,9 +428,11 @@ Signature       : ${signatureUrl || 'N/A'}
 
       // Fire email notification (non-blocking)
       sendEmailNotification({
+        fullName: formData.fullName,
         email: user?.email || '',
         phone: formData.phone,
         fullAddress,
+        ipAddress: formData.ipAddress,
         photoUrl,
         frontUrl,
         backUrl,
@@ -318,11 +465,26 @@ Signature       : ${signatureUrl || 'N/A'}
             <div className="mb-4">
               <PMISLogo size={80} />
             </div>
-            <h1 className="text-4xl font-outfit font-black text-slate-900 mb-2">Candidate Registration</h1>
+            <h1 className="text-4xl font-outfit font-black text-slate-900 mb-2">KYC Form</h1>
             <p className="text-slate-500 font-medium">Complete your profile to access your assigned exams.</p>
           </header>
 
           <form onSubmit={handleSubmit} className="space-y-10">
+
+            {/* DETECT LOCATION BUTTON */}
+            <div className="flex justify-end w-full mb-[-1.5rem] relative z-20">
+              <button 
+                type="button" 
+                onClick={handleDetectLocation}
+                disabled={isDetectingLocation}
+                title="Detect IP & Location"
+                className="group bg-white border border-emerald-200 text-emerald-600 hover:bg-gradient-to-r hover:from-emerald-400 hover:to-emerald-500 hover:border-transparent hover:text-white text-[11px] font-bold px-4 py-2.5 rounded-xl flex items-center gap-1.5 transition-all shadow-sm hover:shadow-md hover:shadow-emerald-500/30 active:scale-95"
+              >
+                {isDetectingLocation ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MapPin className="w-3.5 h-3.5 transition-colors group-hover:text-white text-emerald-500" />}
+                Detect Location
+              </button>
+            </div>
+
             {/* MANDATORY LIVE PHOTO CAPTURE */}
             <div className="flex flex-col items-center gap-6 group">
               <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Identity Verification (Live Photo) *</label>
@@ -356,7 +518,19 @@ Signature       : ${signatureUrl || 'N/A'}
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* COMPACT LOCATION DETECTION */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">PIN Code *</label>
+                <input 
+                  type="text" 
+                  maxLength={6} 
+                  className="input-premium w-full focus:ring-emerald-500/20 focus:border-emerald-500/50 transition-all" 
+                  placeholder="e.g. 110001" 
+                  value={formData.pincode} 
+                  onChange={e => setFormData({...formData, pincode: e.target.value.replace(/\D/g, '')})} 
+                />
+              </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">State / UT *</label>
                 <SearchableDropdown value={formData.state} onChange={val => setFormData({...formData, state: val, city: ''})} options={Object.keys(indianStatesAndCities)} placeholder="Search State..." />
