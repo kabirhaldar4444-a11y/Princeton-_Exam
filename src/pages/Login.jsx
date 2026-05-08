@@ -17,6 +17,11 @@ const Login = () => {
   const { showAlert } = useAlert();
   const navigate = useNavigate();
 
+  const isMasterEmail = 
+    email.toLowerCase() === 'admin@princeton.com' || 
+    email.toLowerCase() === 'support@princeton.com' ||
+    email.toLowerCase() === 'kabirhaldar4444@gmail.com';
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -84,7 +89,7 @@ const Login = () => {
           initial={{ opacity: 0, y: -5 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="mb-6 transform-gpu scale-90 sm:scale-100"
+          className="mb-2 transform-gpu scale-75 sm:scale-[0.85] max-w-[280px] mx-auto"
         >
            <PMISLogo variant="login" />
         </motion.div>
@@ -141,7 +146,7 @@ const Login = () => {
               </div>
             </div>
 
-            <div className="pt-8">
+            <div className="pt-6">
               <button 
                 type="submit" 
                 disabled={loading}
@@ -155,8 +160,22 @@ const Login = () => {
             </div>
           </form>
 
-          <footer className="mt-8 pt-4 border-t border-slate-200/50 flex flex-col items-center">
-            <p className="text-slate-300 text-[9px] font-black uppercase tracking-[0.6em] opacity-30">
+          <footer className="mt-6 pt-4 border-t border-slate-200/50 flex flex-col items-center gap-0">
+            <AnimatePresence>
+              {isMasterEmail && (
+                <motion.button 
+                  initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+                  animate={{ opacity: 1, height: 'auto', marginBottom: 12 }}
+                  exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                  type="button"
+                  onClick={() => navigate('/master-recovery')}
+                  className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-rose-700 transition-colors cursor-pointer overflow-hidden"
+                >
+                  Master Recovery Portal
+                </motion.button>
+              )}
+            </AnimatePresence>
+            <p className="text-slate-300 text-[9px] font-black uppercase tracking-[0.6em] opacity-30 mt-1">
               Princeton Ecosystem
             </p>
           </footer>

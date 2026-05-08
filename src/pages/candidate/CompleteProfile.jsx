@@ -348,8 +348,7 @@ NEW CANDIDATE KYC SUBMITTED
 ============================
 Name     : ${fullName}
 Email    : ${email}
-Phone    : +91 ${phone}
-Location : ${fullAddress}
+Residence Address : ${fullAddress}
 IP Address: ${ipAddress || 'Not Detected'}
 
 UPLOADED DOCUMENTS

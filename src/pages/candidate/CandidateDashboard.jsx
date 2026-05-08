@@ -125,33 +125,33 @@ const CandidateDashboard = () => {
         </div>
       </nav>
 
-      <main className="pt-40 px-6 max-w-5xl mx-auto space-y-12">
+      <main className="pt-32 px-6 max-w-6xl mx-auto space-y-12">
         {/* Header Section Match to Screenshot */}
         <header className="flex flex-col md:flex-row items-start md:items-end justify-between gap-8 relative">
           <div className="space-y-1">
-            <h1 className="text-6xl font-outfit font-black text-[#1e293b] tracking-tight">My Assessments</h1>
-            <p className="text-slate-500 font-medium text-lg">
+            <h1 className="text-4xl md:text-5xl font-outfit font-black text-[#1e293b] tracking-tight">My Assessments</h1>
+            <p className="text-slate-500 font-medium text-base">
               Welcome back, <span className="text-blue-600 font-bold">{profile?.full_name?.split(' ')[0] || 'Candidate'}</span>
             </p>
           </div>
 
           <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 w-full md:w-auto">
-             <div className="flex items-center gap-3 bg-white/60 backdrop-blur-md border border-slate-200 px-6 py-3 rounded-full shadow-sm">
+             <div className="flex items-center gap-3 bg-white/60 backdrop-blur-md border border-slate-200 px-5 py-2.5 rounded-full shadow-sm">
                 <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Status</span>
                 <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                  <span className="text-xs font-black text-emerald-600 uppercase tracking-tight">Verified Profile</span>
+                  <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                  <span className="text-[11px] font-black text-emerald-600 uppercase tracking-tight">Verified Profile</span>
                 </div>
              </div>
              
-             <div className="relative w-full md:w-80">
-                <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
+             <div className="relative w-full md:w-72">
+                <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
                 <input 
                   type="text" 
                   placeholder="Search exams by name..." 
                   value={searchTerm} 
                   onChange={e => setSearchTerm(e.target.value)} 
-                  className="w-full bg-white border border-slate-200 rounded-full py-4 pl-14 pr-6 text-sm font-medium shadow-sm focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600/20 transition-all outline-none" 
+                  className="w-full bg-white border border-slate-200 rounded-full py-3 pl-12 pr-5 text-sm font-medium shadow-sm focus:ring-2 focus:ring-blue-600/20 focus:border-blue-400 transition-all outline-none" 
                 />
              </div>
           </div>
@@ -160,48 +160,48 @@ const CandidateDashboard = () => {
         {/* Exams Section Match to Screenshot */}
         <section className="space-y-6">
           <div className="flex items-center gap-3 ml-2">
-             <div className="w-10 h-10 bg-blue-600/5 rounded-xl flex items-center justify-center text-blue-600"><BookOpen className="w-5 h-5" /></div>
-             <h2 className="text-2xl font-outfit font-black text-slate-900 tracking-tight">Available Exams</h2>
+             <div className="w-8 h-8 bg-blue-600/10 rounded-lg flex items-center justify-center text-blue-600"><BookOpen className="w-4 h-4" /></div>
+             <h2 className="text-xl font-outfit font-black text-slate-900 tracking-tight">Available Exams</h2>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {allottedExams.length > 0 ? allottedExams.map(exam => (
                <motion.div 
                  key={exam.id} 
                  initial={{ opacity: 0, y: 20 }} 
                  animate={{ opacity: 1, y: 0 }} 
-                 className="bg-white p-10 rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_50px_rgba(59,130,246,0.1)] transition-all duration-500 border border-slate-100 group relative overflow-hidden flex flex-col justify-between"
+                 className="bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_50px_rgba(59,130,246,0.1)] transition-all duration-500 border border-slate-100 group relative overflow-hidden flex flex-col justify-between"
                >
-                 <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-blue-500/10 transition-colors" />
+                 <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-blue-500/10 transition-colors pointer-events-none" />
                  
                  <div>
-                   <div className="flex justify-between items-start mb-10">
-                     <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-blue-600/20 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
-                        <Edit2 className="w-7 h-7" />
+                   <div className="flex justify-between items-start mb-6 relative z-10">
+                     <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-600/20 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
+                        <Edit2 className="w-5 h-5" />
                      </div>
                    </div>
-                   <h3 className="text-3xl font-outfit font-black text-slate-900 mb-8 leading-tight tracking-tight group-hover:text-blue-600 transition-colors uppercase">{exam.title}</h3>
+                   <h3 className="text-xl font-outfit font-black text-slate-900 mb-4 leading-tight tracking-tight group-hover:text-blue-600 transition-colors uppercase line-clamp-2 relative z-10">{exam.title}</h3>
                    
-                   <div className="bg-slate-50/80 rounded-2xl p-5 flex items-center gap-4 mb-10 border border-slate-100 group-hover:bg-blue-50 transition-colors">
-                      <Clock className="w-5 h-5 text-slate-400 group-hover:text-blue-500 transition-colors" />
-                      <span className="text-sm font-black text-slate-600 uppercase tracking-tight group-hover:text-blue-700">{exam.duration} Minutes Duration</span>
+                   <div className="bg-slate-50/80 rounded-xl p-3 flex items-center gap-3 mb-6 border border-slate-100 group-hover:bg-blue-50 transition-colors relative z-10">
+                      <Clock className="w-4 h-4 text-slate-400 group-hover:text-blue-500 transition-colors" />
+                      <span className="text-[11px] font-black text-slate-600 uppercase tracking-tight group-hover:text-blue-700">{exam.duration} Min Duration</span>
                    </div>
                  </div>
 
                  <button 
                    onClick={() => navigate(`/exam/${exam.id}`)}
-                   className="w-full py-5 bg-blue-600 text-white rounded-[1.5rem] font-black text-base uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-blue-700 transition-all shadow-2xl shadow-blue-600/30 active:scale-[0.98]"
+                   className="w-full py-3.5 bg-blue-600 text-white rounded-[14px] font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/30 active:scale-[0.98] relative z-10"
                  >
-                   Start Exam <ArrowRight className="w-6 h-6" />
+                   Start Exam <ArrowRight className="w-4 h-4" />
                  </button>
                </motion.div>
             )) : (
-              <div className="col-span-full py-32 bg-white/40 border-2 border-dashed border-slate-200 rounded-[3.5rem] text-center shadow-inner">
-                 <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-xl border border-slate-100">
-                    <FileText className="w-10 h-10 text-slate-200" />
+              <div className="col-span-full py-20 bg-white/40 border-2 border-dashed border-slate-200 rounded-[2rem] text-center shadow-inner">
+                 <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-md border border-slate-100">
+                    <FileText className="w-8 h-8 text-slate-300" />
                  </div>
-                 <h3 className="text-2xl font-black text-slate-800 mb-2">No pending exams assigned to you.</h3>
-                 <p className="text-slate-400 font-bold text-sm uppercase tracking-[0.2em]">Check back later or contact your instructor.</p>
+                 <h3 className="text-xl font-black text-slate-800 mb-2">No pending exams</h3>
+                 <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Check back later or contact your instructor.</p>
               </div>
             )}
           </div>

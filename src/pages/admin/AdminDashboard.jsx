@@ -81,7 +81,7 @@ const AdminDashboard = () => {
         </div>
       </nav>
 
-      <main className={`px-6 max-w-7xl mx-auto page-transition ${isSubView ? 'pt-20' : 'pt-32'}`}>
+      <main className={`px-6 max-w-7xl mx-auto page-transition ${isSubView ? 'pt-32' : 'pt-36'}`}>
 
 
 

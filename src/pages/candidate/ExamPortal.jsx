@@ -6,15 +6,19 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Clock, 
   Send, 
-  ChevronLeft, 
-  ChevronRight, 
   Menu, 
   X, 
   Layout, 
-  ShieldCheck,
-  CheckCircle,
-  AlertTriangle,
-  Loader2
+  ShieldCheck, 
+  CheckCircle, 
+  AlertTriangle, 
+  Loader2, 
+  Bookmark, 
+  ChevronLeft, 
+  ChevronRight, 
+  MoreVertical, 
+  Flag, 
+  Circle 
 } from 'lucide-react';
 import { useAlert } from '../../context/AlertProvider';
 import PMISLogo from '../../components/common/PMISLogo';
@@ -32,9 +36,11 @@ const ExamPortal = () => {
   const [timeLeft, setTimeLeft] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [isMapOpen, setIsMapOpen] = useState(false);
+  const [isMapOpen, setIsMapOpen] = useState(true); 
   const [hasAcceptedDeclaration, setHasAcceptedDeclaration] = useState(false);
   const [acceptedCheckbox, setAcceptedCheckbox] = useState(false);
+  const [reviewStatus, setReviewStatus] = useState({}); 
+  const [visited, setVisited] = useState({ 0: true }); // Track visited questions
 
   // Refs for persistence to avoid dependency loops in interval
   const answersRef = useRef({});
@@ -108,10 +114,14 @@ const ExamPortal = () => {
 
   // Sync state to refs whenever state changes (for the interval to use)
   useEffect(() => { answersRef.current = answers; }, [answers]);
-  useEffect(() => { indexRef.current = currentIdx; }, [currentIdx]);
+  useEffect(() => { indexRef.current = currentIdx; setVisited(prev => ({ ...prev, [currentIdx]: true })); }, [currentIdx]);
 
   const handleAnswer = (optionIdx) => {
     setAnswers(prev => ({ ...prev, [currentIdx]: optionIdx }));
+  };
+
+  const toggleReview = () => {
+    setReviewStatus(prev => ({ ...prev, [currentIdx]: !prev[currentIdx] }));
   };
 
   const calculateScore = () => {
@@ -294,214 +304,218 @@ const ExamPortal = () => {
   }
 
   return (
-    <div className="flex flex-col bg-slate-50 select-none page-transition">
-
-      {/* Slim Top Navigation Strip */}
-      <header className="fixed top-0 left-0 right-0 z-[100] px-4 py-3">
-        <div className="max-w-7xl mx-auto bg-white/80 backdrop-blur-2xl border border-white/50 rounded-full px-6 py-2 flex items-center justify-between shadow-xl">
-          <div className="flex items-center">
-            <PMISLogo variant="navbar" />
+    <div className="h-screen w-full flex flex-col bg-[#fcfdfe] select-none font-inter overflow-hidden relative">
+      
+      {/* MODERN HEADER - FIXED HEIGHT */}
+      <header className="h-20 shrink-0 bg-white border-b border-slate-100 flex items-center px-8 z-[100] shadow-sm">
+        <div className="flex items-center gap-6">
+          <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
+             <PMISLogo variant="navbar" />
           </div>
+          <div className="h-8 w-[1px] bg-slate-100" />
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Live Assessment</p>
+            <h1 className="text-xl font-black text-slate-900 tracking-tight">{exam?.title || 'Loading Exam...'}</h1>
+          </div>
+        </div>
 
-          <button 
-            onClick={() => handleSubmit()}
-            disabled={submitting}
-            className="px-6 py-2 bg-blue-600 text-white rounded-full text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50"
-          >
-            {submitting ? 'Syncing...' : 'Submit Exam'} <CheckCircle className="w-3.5 h-3.5" />
-          </button>
+        <div className="ml-auto flex items-center gap-8">
+           <button 
+              onClick={() => handleSubmit()} 
+              disabled={submitting}
+              className="bg-[#19a5c8] hover:bg-[#1589a7] text-white px-8 py-3 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-cyan-500/20 transition-all active:scale-95"
+           >
+              {submitting ? 'Syncing...' : 'Submit Exam'} <CheckCircle className="w-4 h-4" />
+           </button>
+
+           <div className="flex items-center gap-4 bg-slate-50 px-6 py-3 rounded-2xl border border-slate-100">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Time Left</span>
+              <div className={`flex items-center gap-2 font-mono text-xl font-black ${timeLeft < 300 ? 'text-rose-500 animate-pulse' : 'text-slate-900'}`}>
+                <Clock className="w-5 h-5 opacity-40" />
+                {formatTime(timeLeft)}
+              </div>
+           </div>
         </div>
       </header>
 
-      {/* Sub-Header HUD - Tightened */}
-      <div className="mt-24 px-8 max-w-7xl mx-auto w-full flex flex-col md:flex-row items-center justify-between gap-6 mb-6">
-
-        <div className="space-y-1 text-center md:text-left">
-          <div className="flex items-center gap-2 justify-center md:justify-start">
-            <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
-            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">Secure Session</span>
-          </div>
-          <h2 className="text-3xl font-outfit font-black text-slate-900 leading-tight tracking-tight">{exam?.title}</h2>
-        </div>
-
-        <div className="flex items-center gap-10">
-          <div className="bg-white/60 backdrop-blur-md border border-slate-200 rounded-3xl px-8 py-3 shadow-sm flex items-center gap-6">
-            <div className="text-center md:text-right">
-              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-1">Time Remaining</span>
-              <div className={`flex items-center gap-3 font-mono text-2xl font-black ${timeLeft < 300 ? 'text-red-500 animate-pulse' : 'text-slate-900'}`}>
-                 <Clock className={`w-5 h-5 ${timeLeft < 300 ? 'text-red-500' : 'text-blue-500'}`} />
-                 {formatTime(timeLeft)}
+      <div className="flex-1 flex overflow-hidden">
+        
+        {/* LEFT: MAIN QUESTION AREA */}
+        <main className="flex-1 relative flex flex-col overflow-hidden">
+           {/* Question Indicator */}
+           <div className="px-16 pt-8 pb-4 flex items-center gap-3 shrink-0">
+              <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">Question</span>
+              <div className="bg-[#0f172a] text-white w-9 h-9 rounded-full flex items-center justify-center font-black text-sm shadow-xl shadow-slate-900/20">
+                {currentIdx + 1}
               </div>
-            </div>
-          </div>
-        </div>
-      </div>
+              <span className="text-slate-300 font-bold">/ {questions.length}</span>
+              <div className="h-0.5 flex-1 bg-slate-100 mx-10 rounded-full overflow-hidden">
+                <motion.div initial={{width:0}} animate={{width:`${progressPercent}%`}} className="h-full bg-cyan-500" />
+              </div>
+           </div>
 
-      {/* Progress & Nav Bar */}
-      <div className="px-8 max-w-7xl mx-auto w-full mb-8">
-
-        <div className="bg-white border border-slate-200 p-4 flex items-center justify-between rounded-[2rem] shadow-sm">
-          <div className="flex items-center gap-6">
-            <button 
-              onClick={() => setIsMapOpen(true)}
-              className="px-5 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-primary-600 transition-all shadow-lg shadow-slate-900/10"
-            >
-              <Layout className="w-4 h-4" /> View All Questions
-            </button>
-            <div className="h-4 w-[1px] bg-slate-200" />
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">
-              Question <span className="text-slate-900 font-black">{currentIdx + 1}</span> <span className="text-slate-300 mx-1">/</span> {questions.length}
-            </span>
-          </div>
-
-          <div className="hidden md:flex items-center gap-4 flex-1 max-w-xs ml-auto">
-            <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-               <motion.div 
-                 initial={{ width: 0 }}
-                 animate={{ width: `${progressPercent}%` }}
-                 className="h-full bg-primary-500"
-               />
-            </div>
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{Math.round(progressPercent)}% Clear</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Question Surface */}
-      <main className="flex-1 px-8 max-w-7xl mx-auto w-full pb-32">
-        <AnimatePresence mode="wait">
-          <motion.div 
-            key={currentIdx}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="space-y-8"
-          >
-            <h3 className="text-3xl md:text-5xl font-outfit font-bold text-slate-900 leading-[1.2] tracking-tight">
-              {currentQuestion?.question_text}
-            </h3>
-
-            <div className="grid gap-4">
-              {currentQuestion?.options.map((option, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handleAnswer(idx)}
-                  className={`
-                    w-full text-left p-6 md:p-8 rounded-[2rem] border-2 transition-all duration-300 flex items-center gap-6 group relative overflow-hidden
-                    ${answers[currentIdx] === idx 
-                      ? 'border-primary-500 bg-primary-50/50 shadow-lg shadow-primary-500/5' 
-                      : 'border-slate-100 bg-white hover:border-slate-300 hover:shadow-md'}
-                  `}
-                >
-                  <div className={`
-                    w-10 h-10 rounded-full border-2 flex items-center justify-center text-sm font-black transition-all duration-300
-                    ${answers[currentIdx] === idx ? 'bg-primary-500 border-primary-500 text-white' : 'border-slate-200 text-slate-300 group-hover:border-slate-400'}
-                  `}>
-                    {String.fromCharCode(65 + idx)}
-                  </div>
-                  <span className={`text-xl font-semibold transition-colors duration-300 ${answers[currentIdx] === idx ? 'text-slate-900' : 'text-slate-500'}`}>
-                    {option}
-                  </span>
-                  
-                  {answers[currentIdx] === idx && (
-                    <div className="ml-auto w-6 h-6 bg-primary-500 rounded-full flex items-center justify-center text-white">
-                      <CheckCircle className="w-4 h-4" />
+           <div className="flex-1 px-16 py-6 overflow-y-auto custom-scrollbar">
+              <AnimatePresence mode="wait">
+                 <motion.div 
+                    key={currentIdx}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    className="space-y-10 max-w-5xl"
+                 >
+                    <div className="flex gap-6">
+                       <div className="w-1 h-10 bg-[#0f172a] rounded-full shrink-0 mt-1" />
+                       <h2 className="text-[34px] font-bold text-[#0f172a] leading-[1.3] tracking-tight">
+                         {currentQuestion?.question_text}
+                       </h2>
                     </div>
-                  )}
-                </button>
-              ))}
-            </div>
-          </motion.div>
-        </AnimatePresence>
-      </main>
 
-      {/* Bottom Floating Navigation - Glassy */}
-      <footer className="fixed bottom-0 left-0 right-0 p-6 z-50 pointer-events-none">
-        <div className="max-w-7xl mx-auto flex justify-between items-center pointer-events-auto">
-          <button 
-            disabled={currentIdx === 0}
-            onClick={() => setCurrentIdx(prev => prev - 1)}
-            className="flex items-center gap-2 text-slate-400 hover:text-slate-900 font-black uppercase tracking-widest text-[10px] bg-white shadow-lg px-6 py-3 rounded-2xl border border-slate-100 disabled:opacity-30 transition-all"
-          >
-            <ChevronLeft className="w-5 h-5" /> Previous
-          </button>
+                    <div className="grid gap-3.5 pl-7">
+                       {currentQuestion?.options.map((option, idx) => (
+                          <button 
+                             key={idx}
+                             onClick={() => handleAnswer(idx)}
+                             className={`
+                               group flex items-center gap-6 p-6 rounded-3xl border-2 transition-all duration-200 text-left
+                               ${answers[currentIdx] === idx 
+                                 ? 'bg-blue-50/40 border-blue-500 shadow-md shadow-blue-500/5' 
+                                 : 'bg-white border-transparent hover:border-slate-100 hover:shadow-sm'}
+                             `}
+                          >
+                             <div className={`
+                                w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black shrink-0 transition-colors
+                                ${answers[currentIdx] === idx ? 'bg-blue-500 text-white' : 'bg-slate-50 text-slate-400 group-hover:bg-slate-100'}
+                             `}>
+                                {String.fromCharCode(65 + idx)}
+                             </div>
+                             <span className={`text-[19px] font-semibold transition-colors ${answers[currentIdx] === idx ? 'text-slate-900' : 'text-slate-500'}`}>
+                                {option}
+                             </span>
+                          </button>
+                       ))}
+                    </div>
+                 </motion.div>
+              </AnimatePresence>
+           </div>
 
-          <button 
-            onClick={() => {
-              if (currentIdx < questions.length - 1) setCurrentIdx(prev => prev + 1);
-              else showAlert('All questions attempted. Review your answers or submit.', 'info');
-            }}
-            className="px-8 py-4 bg-blue-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-blue-700 transition-all shadow-2xl shadow-blue-600/30"
-          >
-            Save & Next <ChevronRight className="w-5 h-5" />
-          </button>
-        </div>
-      </footer>
+           {/* FOOTER ACTIONS - STABLE PILL DESIGN */}
+           <footer className="h-24 shrink-0 border-t border-slate-50 flex items-center justify-between px-16 bg-white/50 backdrop-blur-sm">
+              <button 
+                 disabled={currentIdx === 0}
+                 onClick={() => setCurrentIdx(prev => prev - 1)}
+                 className="flex items-center gap-3 text-[#94a3b8] hover:text-[#0f172a] font-black uppercase tracking-widest text-[11px] transition-all disabled:opacity-20"
+              >
+                 <ChevronLeft className="w-4 h-4" /> Prev
+              </button>
 
-      {/* Right Question Map Drawer */}
-      <AnimatePresence>
-        {isMapOpen && (
-          <div className="fixed inset-0 z-[200]">
-            <motion.div 
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setIsMapOpen(false)}
-              className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm"
-            />
-            <motion.div 
-              initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
-              className="absolute right-0 top-0 h-full w-full max-w-sm bg-white shadow-2xl flex flex-col"
-            >
-              <div className="p-8 flex items-center justify-between border-b border-slate-100">
-                <div className="flex items-center gap-3">
-                   <Layout className="w-6 h-6 text-primary-500" />
-                   <h3 className="text-xl font-black text-slate-900 tracking-tight">QUESTION MAP</h3>
-                </div>
-                <button onClick={() => setIsMapOpen(false)} className="p-2 hover:bg-slate-100 rounded-full transition-all">
-                  <X className="w-6 h-6 text-slate-400" />
-                </button>
+              <button 
+                 onClick={toggleReview}
+                 className={`flex items-center gap-3 px-10 py-3.5 rounded-full border-2 transition-all text-[11px] font-black uppercase tracking-widest ${reviewStatus[currentIdx] ? 'bg-[#f59e0b] border-[#f59e0b] text-white shadow-lg shadow-amber-500/20' : 'bg-white border-slate-100 text-[#64748b] hover:border-slate-300'}`}
+              >
+                 <Bookmark className={`w-4 h-4 ${reviewStatus[currentIdx] ? 'fill-white' : ''}`} /> 
+                 {reviewStatus[currentIdx] ? 'Marked' : 'Mark for Review'}
+              </button>
+
+              <button 
+                 onClick={() => {
+                   if (currentIdx < questions.length - 1) setCurrentIdx(prev => prev + 1);
+                   else showAlert('All questions reached. Review map or submit.', 'info');
+                 }}
+                 className="bg-[#0f172a] hover:bg-[#1e293b] text-white px-12 py-4 rounded-3xl text-xs font-black uppercase tracking-widest flex items-center gap-3 shadow-xl shadow-slate-900/20 transition-all active:scale-95"
+              >
+                 {currentIdx === questions.length - 1 ? 'Review' : 'Next'} <ChevronRight className="w-4 h-4" />
+              </button>
+           </footer>
+        </main>
+
+        {/* RIGHT: QUESTION MAP SIDEBAR */}
+        <aside className="w-80 shrink-0 bg-white border-l border-slate-100 flex flex-col p-8 z-[90]">
+           <div className="flex items-center gap-3 mb-8">
+              <Menu className="w-5 h-5 text-slate-400" />
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Map</h3>
+           </div>
+
+           <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+              <div className="grid grid-cols-4 gap-3.5">
+                 {questions.map((_, idx) => {
+                    const isCurrent = currentIdx === idx;
+                    const isAnswered = answers[idx] !== undefined;
+                    const isReviewed = reviewStatus[idx];
+                    const isVisited = visited[idx];
+
+                    let shapeClass = "rounded-xl";
+                    let clipStyle = {};
+                    let colorClass = "bg-slate-50 text-slate-300 border border-slate-100/50 hover:border-slate-200";
+
+                    if (isCurrent) {
+                       colorClass = "bg-[#0f172a] text-white shadow-xl shadow-slate-900/30 scale-110 z-10";
+                       clipStyle = { clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)' };
+                    } else if (isReviewed) {
+                       colorClass = "bg-[#6366f1] text-white";
+                       shapeClass = "rounded-full";
+                    } else if (isAnswered) {
+                       colorClass = "bg-[#10b981] text-white";
+                       clipStyle = { clipPath: 'polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)' };
+                    } else if (isVisited) {
+                       colorClass = "bg-[#f59e0b] text-white";
+                       clipStyle = { clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)' };
+                    }
+
+                    return (
+                       <button 
+                          key={idx}
+                          onClick={() => setCurrentIdx(idx)}
+                          className={`relative aspect-square text-[13px] font-black transition-all flex items-center justify-center ${shapeClass} ${colorClass}`}
+                          style={clipStyle}
+                       >
+                          {idx + 1}
+                       </button>
+                    );
+                 })}
               </div>
+           </div>
 
-              <div className="p-8 flex-1 overflow-y-auto">
-                <div className="grid grid-cols-5 gap-3">
-                  {questions.map((_, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => {
-                        setCurrentIdx(idx);
-                        setIsMapOpen(false);
-                      }}
-                      className={`
-                        aspect-square rounded-xl font-black text-sm flex items-center justify-center transition-all
-                        ${currentIdx === idx ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/20 scale-110' : ''}
-                        ${currentIdx !== idx && answers[idx] !== undefined ? 'bg-primary-500/10 text-primary-600' : ''}
-                        ${currentIdx !== idx && answers[idx] === undefined ? 'bg-slate-100 text-slate-400 hover:bg-slate-200' : ''}
-                      `}
-                    >
-                      {idx + 1}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="p-8 border-t border-slate-100 flex flex-col gap-4">
-                 <div className="flex items-center gap-3">
-                   <div className="w-4 h-4 rounded bg-primary-500/10 border border-primary-500/20" />
-                   <span className="text-xs font-bold text-slate-500">Answered</span>
-                   <span className="ml-auto text-sm font-black text-slate-900">{Object.keys(answers).length}</span>
-                 </div>
-                 <div className="flex items-center gap-3">
-                   <div className="w-4 h-4 rounded bg-slate-100" />
-                   <span className="text-xs font-bold text-slate-500">Unanswered</span>
-                   <span className="ml-auto text-sm font-black text-slate-900">{questions.length - Object.keys(answers).length}</span>
-                 </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+           {/* LEGEND */}
+           <div className="mt-8 pt-8 border-t border-slate-100 space-y-4">
+              <LegendItem 
+                shape="rounded-md border-2 border-slate-100" 
+                label="Not Visited" 
+                count={questions.length - Object.keys(visited).length} 
+              />
+              <LegendItem 
+                shape="bg-[#f59e0b]" 
+                clipPath="polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)"
+                label="Not Answered" 
+                count={Object.keys(visited).filter(idx => answers[idx] === undefined && !reviewStatus[idx]).length} 
+              />
+              <LegendItem 
+                shape="bg-[#10b981]" 
+                clipPath="polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)"
+                label="Answered" 
+                count={Object.keys(answers).filter(idx => !reviewStatus[idx]).length} 
+              />
+              <LegendItem 
+                shape="bg-[#6366f1] rounded-full" 
+                label="Reviewed" 
+                count={Object.keys(reviewStatus).filter(k => reviewStatus[k]).length} 
+              />
+           </div>
+        </aside>
+      </div>
     </div>
   );
 };
+
+const LegendItem = ({ shape, clipPath, label, count }) => (
+  <div className="flex items-center gap-4">
+    <div 
+      className={`w-5 h-5 shrink-0 ${shape}`} 
+      style={clipPath ? { clipPath } : {}}
+    />
+    <span className="text-[11px] font-black text-[#94a3b8] uppercase tracking-wider leading-none">{label}</span>
+    <span className="ml-auto text-xs font-black text-[#0f172a]">{Math.max(0, count)}</span>
+  </div>
+);
 
 const SummaryItem = ({ icon, label, value }) => (
   <div className="bg-slate-50 p-4 rounded-2xl flex items-center gap-3">

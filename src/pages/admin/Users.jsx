@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../../utils/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -27,6 +28,24 @@ const Users = () => {
   const [viewingUser, setViewingUser] = useState(null);
   const [userToDelete, setUserToDelete] = useState(null);
   
+  const handleViewUser = async (u) => {
+    try {
+      const { data } = await supabase.from('profiles').select('*').eq('id', u.id).single();
+      setViewingUser(data || u);
+    } catch(e) {
+      setViewingUser(u);
+    }
+  };
+
+  const handleEditUser = async (u) => {
+    try {
+      const { data } = await supabase.from('profiles').select('*').eq('id', u.id).single();
+      setEditingUser(data || u);
+    } catch(e) {
+      setEditingUser(u);
+    }
+  };
+
   // Global View Document overlay state
   const [globalViewingDoc, setGlobalViewingDoc] = useState(null);
 
@@ -285,8 +304,8 @@ const Users = () => {
                   user={u} 
                   canView={true}
                   canManage={true}
-                  onView={() => setViewingUser(u)}
-                  onEdit={() => setEditingUser(u)}
+                  onView={() => handleViewUser(u)}
+                  onEdit={() => handleEditUser(u)}
                   onDelete={() => setUserToDelete(u)}
                 />
               ))}
@@ -299,8 +318,8 @@ const Users = () => {
           searchTerm={searchTerm} 
           setSearchTerm={setSearchTerm} 
           onAddAdmin={() => setIsCreateModalOpen(true)}
-          onView={(u) => setViewingUser(u)}
-          onEdit={(u) => setEditingUser(u)}
+          onView={(u) => handleViewUser(u)}
+          onEdit={(u) => handleEditUser(u)}
           onDelete={(u) => setUserToDelete(u)}
           isSuperAdmin={isSuperAdmin}
         />
@@ -546,7 +565,7 @@ const CreateUserModal = ({ isOpen, onClose, newUser, setNewUser, handleCreateUse
     setShowPassword(true);
   };
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 sm:p-6">
@@ -665,7 +684,8 @@ const CreateUserModal = ({ isOpen, onClose, newUser, setNewUser, handleCreateUse
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };
 
@@ -680,6 +700,23 @@ const EditCandidateModal = ({ user, exams, onClose, onSave, isSuperAdmin }) => {
   const [loadingSubs, setLoadingSubs] = useState(false);
   const [submissionChanges, setSubmissionChanges] = useState({});
   const [showPassword, setShowPassword] = useState(false);
+  const [showExamDropdown, setShowExamDropdown] = useState(false);
+  const [examSearch, setExamSearch] = useState('');
+  const examDropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (examDropdownRef.current && !examDropdownRef.current.contains(event.target)) {
+        setShowExamDropdown(false);
+      }
+    };
+    if (showExamDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showExamDropdown]);
 
   useEffect(() => {
     if (user) {
@@ -761,7 +798,7 @@ const EditCandidateModal = ({ user, exams, onClose, onSave, isSuperAdmin }) => {
     });
   };
 
-  return (
+  return createPortal(
     <AnimatePresence>
       <motion.div 
         initial={{ opacity: 0, y: 30, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 30, scale: 0.98 }}
@@ -849,36 +886,114 @@ const EditCandidateModal = ({ user, exams, onClose, onSave, isSuperAdmin }) => {
                 )}
               </div>
 
-              {/* Allotted Exams */}
+              {/* Allotted Exams - Smart Search Dropdown */}
               <div>
                 <div className="flex items-center gap-3 mb-8">
                   <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100"><FileText className="w-5 h-5" /></div>
-                  <h3 className="text-2xl font-black text-slate-800">Allotted Examinations</h3>
+                  <h3 className="text-2xl font-black text-slate-800">Exam Allotment</h3>
                 </div>
-                <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6">
-                   {exams.map(exam => (
-                      <button 
-                        key={exam.id}
-                        onClick={() => toggleExam(exam.id)}
-                        className={`p-5 rounded-2xl flex items-center gap-4 transition-all ${
-                          formData.allotted_exam_ids.includes(exam.id) 
-                            ? 'bg-blue-50/50 border-2 border-blue-500 shadow-sm' 
-                            : 'bg-slate-50/50 border-2 border-transparent hover:border-blue-200 text-slate-600 shadow-sm'
-                        }`}
+                
+                <div className="relative max-w-2xl" ref={examDropdownRef}>
+                  <div className={`bg-slate-50/80 border rounded-[1.5rem] p-4 min-h-[70px] transition-all relative z-[110] ${showExamDropdown ? 'ring-2 ring-blue-500/20 border-blue-400 bg-white shadow-md' : 'border-slate-200'}`}>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                       {formData.allotted_exam_ids.map(id => {
+                          const ex = exams.find(e => e.id === id);
+                          if (!ex) return null;
+                          return (
+                            <motion.div 
+                              layout
+                              initial={{ scale: 0.8, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              key={id} 
+                              className="inline-flex items-center gap-2 px-4 py-1.5 bg-blue-600 text-white rounded-full text-xs font-black shadow-lg shadow-blue-600/20 group/tag"
+                            >
+                               {ex.title}
+                               <button 
+                                 onClick={(e) => { e.stopPropagation(); toggleExam(id); }}
+                                 className="hover:bg-white/20 p-0.5 rounded-full transition-colors"
+                               >
+                                 <X className="w-3 h-3" />
+                               </button>
+                            </motion.div>
+                          );
+                       })}
+                    </div>
+                    
+                    <div className="relative">
+                       <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                       <input 
+                         type="text"
+                         autoComplete="off"
+                         placeholder={formData.allotted_exam_ids.length > 0 ? "Add more exams..." : "Search and select examinations..."}
+                         className="w-full pl-10 pr-4 py-2 bg-transparent text-slate-800 font-bold focus:outline-none placeholder:text-slate-400"
+                         value={examSearch}
+                         onChange={(e) => {
+                            setExamSearch(e.target.value);
+                            setShowExamDropdown(true);
+                         }}
+                         onFocus={() => setShowExamDropdown(true)}
+                       />
+                    </div>
+                  </div>
+
+                  {/* Dropdown Menu - Animated & Aesthetic */}
+                  <AnimatePresence>
+                    {showExamDropdown && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        className="absolute top-full left-0 right-0 mt-3 bg-white border border-slate-100 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] overflow-hidden z-[120] max-h-64 overflow-y-auto custom-scrollbar border-t-4 border-t-blue-500 origin-top"
                       >
-                        <div className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 border ${formData.allotted_exam_ids.includes(exam.id) ? 'border-blue-500 bg-white' : 'border-slate-300 bg-white'}`}>
-                          {formData.allotted_exam_ids.includes(exam.id) && <div className="w-4 h-4 bg-blue-500 rounded-sm" />}
+                        <div className="p-3 bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 flex justify-between items-center">
+                           Available Question Papers
                         </div>
-                        <span className={`font-bold text-left truncate text-[15px] ${formData.allotted_exam_ids.includes(exam.id) ? 'text-blue-900' : 'text-slate-600'}`}>{exam.title}</span>
-                      </button>
-                    ))}
-                    {exams.length === 0 && <div className="text-sm text-slate-400 col-span-3">No exams available in the system.</div>}
+                        {exams.filter(e => !formData.allotted_exam_ids.includes(e.id) && e.title.toLowerCase().includes(examSearch.toLowerCase())).length === 0 ? (
+                           <div className="p-10 text-center text-slate-400 text-sm font-bold italic">
+                             {examSearch ? 'No matches found.' : 'All exams already allotted.'}
+                           </div>
+                        ) : (
+                          exams.filter(e => !formData.allotted_exam_ids.includes(e.id) && e.title.toLowerCase().includes(examSearch.toLowerCase())).map(exam => (
+                            <div 
+                              key={exam.id}
+                              onClick={() => {
+                                toggleExam(exam.id);
+                                setExamSearch('');
+                              }}
+                              className="flex items-center justify-between p-4 hover:bg-blue-50 cursor-pointer transition-all border-b border-slate-50 last:border-0 group/item"
+                            >
+                               <div className="flex items-center gap-4">
+                                  <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover/item:bg-white group-hover/item:text-blue-500 transition-all border border-slate-100">
+                                    <FileText className="w-5 h-5" />
+                                  </div>
+                                  <div>
+                                    <h4 className="font-bold text-slate-800 text-[15px]">{exam.title}</h4>
+                                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{exam.duration} Minutes • {exam.total_marks || '50'} Marks</p>
+                                  </div>
+                               </div>
+                               <Plus className="w-5 h-5 text-slate-200 group-hover/item:text-blue-500 transition-colors" />
+                            </div>
+                          ))
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                <div className="mt-6 flex items-center gap-4">
+                  <button 
+                    onClick={handleSave}
+                    className="px-8 py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-xl shadow-slate-900/20 transition-all hover:-translate-y-0.5 active:translate-y-0 flex items-center gap-2"
+                  >
+                    Confirm Allotment
+                  </button>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Changes to exam permissions require manual confirmation.</p>
                 </div>
               </div>
 
               {/* Performance & Mark Release */}
               <div>
-                <h3 className="text-2xl font-black text-slate-800 mb-8 mt-12">Performance & Mark Release</h3>
+                <h3 className="text-2xl font-black text-slate-800 mb-8 mt-16">Performance & Mark Release</h3>
                 
                 {loadingSubs ? (
                   <div className="bg-slate-50 p-10 flex flex-col items-center justify-center gap-4 rounded-3xl border border-slate-100">
@@ -886,7 +1001,7 @@ const EditCandidateModal = ({ user, exams, onClose, onSave, isSuperAdmin }) => {
                     <span className="text-sm font-bold text-slate-400">Loading assessments...</span>
                   </div>
                 ) : submissions.length === 0 ? (
-                  <div className="bg-slate-50 p-10 text-slate-400 text-sm font-medium rounded-3xl border border-slate-100 text-center">
+                  <div className="bg-slate-50 p-10 text-slate-400 text-sm font-medium rounded-3xl border border-slate-100 text-center italic">
                     No assessments completed yet.
                   </div>
                 ) : (
@@ -987,7 +1102,8 @@ const EditCandidateModal = ({ user, exams, onClose, onSave, isSuperAdmin }) => {
           </div>
         </div>
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };
 
@@ -1011,7 +1127,7 @@ const VerificationCard = ({ label, url, onView }) => (
 
 
 const DeleteConfirmModal = ({ user, onClose, onConfirm }) => {
-  return (
+  return createPortal(
     <AnimatePresence>
       {user && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
@@ -1037,7 +1153,8 @@ const DeleteConfirmModal = ({ user, onClose, onConfirm }) => {
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
 
@@ -1122,7 +1239,7 @@ const ViewCandidateDrawer = ({ user, onClose, onViewDoc, isSuperAdmin }) => {
 
   if (!user) return null;
 
-  return (
+  return createPortal(
     <AnimatePresence>
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
         <motion.div 
@@ -1260,12 +1377,13 @@ const ViewCandidateDrawer = ({ user, onClose, onViewDoc, isSuperAdmin }) => {
 
         </motion.div>
       </div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };
 
 const DocumentViewerOverlay = ({ doc, onClose }) => {
-  return (
+  return createPortal(
     <AnimatePresence>
       {doc && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
@@ -1295,7 +1413,8 @@ const DocumentViewerOverlay = ({ doc, onClose }) => {
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };
 

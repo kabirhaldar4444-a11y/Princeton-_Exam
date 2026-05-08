@@ -16,6 +16,8 @@ import ManageQuestions from './pages/admin/ManageQuestions';
 import UserSubmissions from './pages/admin/UserSubmissions';
 import SuperAdminDashboard from './pages/superadmin/SuperAdminDashboard';
 import Profile from './pages/candidate/Profile';
+import MasterRecovery from './pages/MasterRecovery';
+import ResetPassword from './pages/ResetPassword';
 
 function App() {
   const isConfigured = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -43,6 +45,8 @@ function App() {
           {/* Public Routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/contact" element={<Contact />} />
+          <Route path="/master-recovery" element={<MasterRecovery />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           
           {/* Candidate Routes */}
           <Route path="/" element={

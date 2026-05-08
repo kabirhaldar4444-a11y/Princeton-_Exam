@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../../utils/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -15,7 +16,11 @@ import {
   AlertCircle,
   FileText,
   BookOpen,
-  Layout
+  Layout,
+  Clipboard,
+  Code2,
+  Zap,
+  Check
 } from 'lucide-react';
 import { useAlert } from '../../context/AlertProvider';
 import * as XLSX from 'xlsx';
@@ -46,6 +51,15 @@ const ManageQuestions = ({ examId: initialExamId, onBack, onSubViewChange }) => 
   const [parsedData, setParsedData] = useState(null);
   const [shuffleQuestions, setShuffleQuestions] = useState(false);
   const [shuffleOptions, setShuffleOptions] = useState(false);
+
+  // Exam Edit State
+  const [editingExam, setEditingExam] = useState(null);
+
+  // JSON Paste State
+  const [isJSONPasteOpen, setIsJSONPasteOpen] = useState(false);
+  const [jsonInput, setJsonInput] = useState('');
+  const [jsonPreview, setJsonPreview] = useState(null);
+  const [jsonParseError, setJsonParseError] = useState(null);
 
   useEffect(() => {
     fetchExams();
@@ -83,6 +97,30 @@ const ManageQuestions = ({ examId: initialExamId, onBack, onSubViewChange }) => 
       showAlert('New exam created effectively.', 'success');
       setNewExamTitle('');
       setNewExamDuration('');
+      fetchExams();
+    } catch (e) {
+      showAlert(e.message, 'error');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleUpdateExam = async (e) => {
+    e.preventDefault();
+    if (!editingExam.title.trim() || !editingExam.duration) {
+       showAlert('Please provide both title and duration.', 'error');
+       return;
+    }
+    setProcessing(true);
+    try {
+      const { error } = await supabase.from('exams').update({
+        title: editingExam.title.trim(),
+        duration: parseInt(editingExam.duration)
+      }).eq('id', editingExam.id);
+      
+      if (error) throw error;
+      showAlert('Exam updated successfully.', 'success');
+      setEditingExam(null);
       fetchExams();
     } catch (e) {
       showAlert(e.message, 'error');
@@ -162,6 +200,29 @@ const ManageQuestions = ({ examId: initialExamId, onBack, onSubViewChange }) => 
      } catch (e) {
        showAlert(e.message, 'error');
      }
+  };
+
+  const handleDeleteAllQuestions = () => {
+    if (questions.length === 0) return;
+    confirm({
+      title: 'Clear All Questions?',
+      message: `Are you sure you want to delete all ${questions.length} questions from "${selectedExam.title}"? This cannot be undone.`,
+      type: 'danger',
+      confirmText: 'Yes, Delete All',
+      onConfirm: async () => {
+        setProcessing(true);
+        try {
+          const { error } = await supabase.from('questions').delete().eq('exam_id', selectedExam.id);
+          if (error) throw error;
+          setQuestions([]);
+          showAlert('All questions cleared successfully.', 'success');
+        } catch (e) {
+          showAlert(e.message, 'error');
+        } finally {
+          setProcessing(false);
+        }
+      }
+    });
   };
 
   // --- EXCEL PARSING & DRAG/DROP LOGIC ---
@@ -330,6 +391,89 @@ const ManageQuestions = ({ examId: initialExamId, onBack, onSubViewChange }) => 
     }
   };
 
+  const handleJSONInputChange = (text) => {
+    setJsonInput(text);
+    if (!text.trim()) {
+      setJsonPreview(null);
+      setJsonParseError(null);
+      return;
+    }
+
+    try {
+      const raw = JSON.parse(text);
+      let questions = [];
+      let sourceData = raw.data || (Array.isArray(raw) ? raw : null);
+
+      if (sourceData && Array.isArray(sourceData)) {
+        questions = sourceData.map((item, idx) => {
+          const qText = item.question || item.question_text || '';
+          const opts = Array.isArray(item.options) ? item.options : ['', '', '', ''];
+          
+          // Smart detection of 1-indexed vs 0-indexed
+          // If correctOption is 1-4, we assume it might be 1-indexed.
+          // But we prioritize the user's specific format where it's explicitly 1-indexed.
+          let cIdx = 0;
+          const rawCorrect = item.correctOption !== undefined ? item.correctOption : item.correct_option;
+          
+          if (typeof rawCorrect === 'number') {
+            cIdx = rawCorrect > 0 ? rawCorrect - 1 : 0; // Assume 1-indexed
+          } else if (typeof rawCorrect === 'string') {
+            // Support A, B, C, D
+            const alpha = ['a', 'b', 'c', 'd'].indexOf(rawCorrect.toLowerCase());
+            if (alpha !== -1) cIdx = alpha;
+          }
+
+          return {
+            _id: idx,
+            question_text: qText,
+            options: opts.slice(0, 4).map(String),
+            correct_option: cIdx,
+            explanation: item.explanation || '',
+            valid: qText.trim() !== '' && opts.length >= 2
+          };
+        });
+      }
+
+      setJsonPreview({
+        questions,
+        title: raw.title || '',
+        validCount: questions.filter(q => q.valid).length
+      });
+      setJsonParseError(null);
+    } catch (e) {
+      setJsonParseError(e.message);
+      setJsonPreview(null);
+    }
+  };
+
+  const handleSaveJSONImport = async () => {
+    if (!jsonPreview || jsonPreview.questions.length === 0) return;
+
+    const rowsToSave = jsonPreview.questions.filter(q => q.valid).map(q => ({
+      exam_id: selectedExam.id,
+      question_text: q.question_text,
+      options: q.options,
+      correct_option: q.correct_option,
+      explanation: q.explanation
+    }));
+
+    setProcessing(true);
+    try {
+      const { error } = await supabase.from('questions').insert(rowsToSave);
+      if (error) throw error;
+
+      showAlert(`Successfully imported ${rowsToSave.length} questions from JSON.`, 'success');
+      setIsJSONPasteOpen(false);
+      setJsonInput('');
+      setJsonPreview(null);
+      handleSelectExam(selectedExam);
+    } catch (e) {
+      showAlert(e.message, 'error');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
 
   // --- VIEWS ---
 
@@ -352,13 +496,19 @@ const ManageQuestions = ({ examId: initialExamId, onBack, onSubViewChange }) => 
          )}
          
          {/* HEADER */}
-         <div className="flex items-center gap-4 relative z-10">
+         <div className="flex items-center gap-4 relative z-10 mt-6">
             <button onClick={handleBackToExams} className="flex items-center gap-2 text-indigo-500 font-bold hover:text-indigo-700 transition-colors bg-indigo-50 px-4 py-2 rounded-full text-sm">
                <ArrowLeft className="w-4 h-4"/> Back to Exams
             </button>
             <h2 className="text-3xl font-black text-slate-800 tracking-tight">{selectedExam.title} <span className="text-slate-400 font-medium ml-1">Questions</span></h2>
             
-            <div className="ml-auto">
+            <div className="ml-auto flex gap-3">
+               <button 
+                  onClick={() => setIsJSONPasteOpen(true)}
+                  className="bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 px-6 rounded-xl flex items-center gap-2 cursor-pointer shadow-lg shadow-slate-500/20 transition-all active:scale-95"
+               >
+                 <Code2 className="w-4 h-4 text-emerald-400"/> Smart Paste
+               </button>
                <label className="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-3 px-6 rounded-xl flex items-center gap-2 cursor-pointer shadow-lg shadow-indigo-500/30 transition-all active:scale-95">
                  <Upload className="w-4 h-4"/> Upload Excel
                  <input type="file" accept=".xlsx" onChange={handleFileUpload} className="hidden" />
@@ -459,8 +609,18 @@ const ManageQuestions = ({ examId: initialExamId, onBack, onSubViewChange }) => 
             {/* RIGHT COLUMN: Question List */}
             <div className="lg:col-span-7 flex flex-col pt-1">
                <div className="flex justify-between items-center mb-5 pl-2">
-                  <h3 className="font-black text-slate-800">Existing Questions</h3>
-                  <span className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-xs font-bold ring-1 ring-indigo-500/20">{questions.length} Added</span>
+                  <div className="flex items-center gap-3">
+                    <h3 className="font-black text-slate-800">Existing Questions</h3>
+                    <span className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-xs font-bold ring-1 ring-indigo-500/20">{questions.length} Added</span>
+                  </div>
+                  {questions.length > 0 && (
+                    <button 
+                      onClick={handleDeleteAllQuestions}
+                      className="flex items-center gap-2 text-rose-500 hover:text-rose-700 font-bold text-xs bg-rose-50 px-3 py-1.5 rounded-full transition-colors border border-rose-100"
+                    >
+                      <Trash2 className="w-3.5 h-3.5"/> Clear All
+                    </button>
+                  )}
                </div>
                
                <div className="bg-slate-50/50 flex-1 rounded-[24px] border border-slate-100 p-6 flex flex-col gap-4 relative">
@@ -510,6 +670,7 @@ const ManageQuestions = ({ examId: initialExamId, onBack, onSubViewChange }) => 
          </div>
 
          {/* EXCEL PREVIEW MODAL */}
+         {createPortal(
          <AnimatePresence>
             {isExcelPreviewOpen && parsedData && (
               <div className="fixed inset-0 z-[500] flex items-center justify-center p-6">
@@ -579,7 +740,111 @@ const ManageQuestions = ({ examId: initialExamId, onBack, onSubViewChange }) => 
                 </motion.div>
               </div>
             )}
-         </AnimatePresence>
+         </AnimatePresence>,
+         document.body
+         )}
+
+         {/* SMART JSON PASTE MODAL */}
+         {createPortal(
+         <AnimatePresence>
+            {isJSONPasteOpen && (
+              <div className="fixed inset-0 z-[500] flex items-center justify-center p-6">
+                <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} onClick={() => setIsJSONPasteOpen(false)} className="absolute inset-0 bg-slate-900/60 backdrop-blur-md shadow-2xl" />
+                
+                <motion.div initial={{scale:0.9, y:30, opacity:0}} animate={{scale:1, y:0, opacity:1}} exit={{scale:0.9, y:30, opacity:0}} className="bg-white max-w-6xl w-full h-[90vh] rounded-[2.5rem] flex flex-col overflow-hidden relative z-10 shadow-2xl border border-white/20">
+                   <div className="p-8 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center shrink-0">
+                      <div>
+                         <h3 className="text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3">
+                            <div className="p-2 bg-emerald-100 rounded-xl"><Zap className="w-6 h-6 text-emerald-600" /></div>
+                            Smart Pasting Board
+                         </h3>
+                         <p className="text-sm font-medium text-slate-500 mt-2">Paste your JSON code below. We'll automatically map questions and options.</p>
+                      </div>
+                      <button onClick={() => setIsJSONPasteOpen(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
+                        <X className="w-6 h-6 text-slate-400" />
+                      </button>
+                   </div>
+
+                   <div className="flex-1 flex overflow-hidden">
+                      {/* Left: Code Editor Area */}
+                      <div className="w-1/2 p-8 flex flex-col gap-4 border-r border-slate-100">
+                         <div className="flex items-center justify-between">
+                            <span className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><Code2 className="w-4 h-4"/> JSON INPUT</span>
+                            {jsonParseError && <span className="text-[10px] font-bold text-rose-500 bg-rose-50 px-2 py-1 rounded">Invalid JSON Format</span>}
+                         </div>
+                         <div className="flex-1 relative group">
+                            <textarea 
+                               className={`w-full h-full p-6 font-mono text-sm rounded-3xl bg-slate-900 text-emerald-400 focus:outline-none focus:ring-4 transition-all resize-none leading-relaxed ${jsonParseError ? 'ring-rose-500/20' : 'focus:ring-emerald-500/10'}`}
+                               placeholder='{ "title": "...", "data": [...] }'
+                               value={jsonInput}
+                               onChange={(e) => handleJSONInputChange(e.target.value)}
+                            />
+                            {!jsonInput && (
+                               <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20">
+                                  <Clipboard className="w-20 h-20 text-white" />
+                               </div>
+                            )}
+                         </div>
+                      </div>
+
+                      {/* Right: Preview Area */}
+                      <div className="w-1/2 p-8 bg-slate-50 flex flex-col overflow-hidden">
+                         <div className="flex items-center justify-between mb-4">
+                            <span className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><Layout className="w-4 h-4"/> Live Preview</span>
+                            {jsonPreview && (
+                               <div className="flex gap-2">
+                                  <span className="bg-emerald-500 text-white text-[10px] font-black px-2 py-1 rounded-full">{jsonPreview.validCount} READY</span>
+                                  <span className="bg-slate-200 text-slate-600 text-[10px] font-black px-2 py-1 rounded-full">{jsonPreview.questions.length} TOTAL</span>
+                                </div>
+                            )}
+                         </div>
+
+                         <div className="flex-1 overflow-y-auto pr-4 custom-scrollbar space-y-4">
+                            {!jsonPreview ? (
+                               <div className="h-full flex flex-col items-center justify-center opacity-30">
+                                  <div className="w-20 h-20 bg-slate-200 rounded-3xl flex items-center justify-center mb-4">
+                                     <FileText className="w-10 h-10 text-slate-400" />
+                                  </div>
+                                  <p className="font-bold text-slate-500">Awaiting JSON Data...</p>
+                               </div>
+                            ) : (
+                               jsonPreview.questions.map((q, i) => (
+                                  <div key={i} className={`p-5 rounded-2xl border bg-white transition-all ${q.valid ? 'border-slate-100' : 'border-rose-200 bg-rose-50/50'}`}>
+                                     <div className="flex justify-between items-start mb-3">
+                                        <span className="text-[10px] font-black text-indigo-500 uppercase">Question {i+1}</span>
+                                        {q.valid ? <Check className="w-4 h-4 text-emerald-500" /> : <AlertCircle className="w-4 h-4 text-rose-500" />}
+                                     </div>
+                                     <p className="text-sm font-bold text-slate-800 mb-4 line-clamp-2">{q.question_text || '(Empty Title)'}</p>
+                                     <div className="grid grid-cols-2 gap-2">
+                                        {q.options.map((opt, oIdx) => (
+                                           <div key={oIdx} className={`px-3 py-1.5 rounded-lg text-[11px] border truncate ${q.correct_option === oIdx ? 'bg-emerald-50 border-emerald-200 text-emerald-700 font-bold' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
+                                              {String.fromCharCode(65+oIdx)}. {opt}
+                                           </div>
+                                        ))}
+                                     </div>
+                                  </div>
+                               ))
+                            )}
+                         </div>
+                      </div>
+                   </div>
+
+                   <div className="p-8 border-t border-slate-100 bg-white flex justify-end items-center gap-4 shrink-0">
+                      <button onClick={() => setIsJSONPasteOpen(false)} className="px-8 py-4 rounded-2xl font-bold text-slate-500 hover:bg-slate-100 transition-colors">Discard</button>
+                      <button 
+                         disabled={processing || !jsonPreview || jsonPreview.validCount === 0} 
+                         onClick={handleSaveJSONImport}
+                         className="px-10 py-4 rounded-2xl font-bold text-white bg-[#825dfa] hover:bg-[#6e4ade] shadow-xl shadow-purple-500/20 flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50 disabled:grayscale"
+                      >
+                         {processing ? <Loader2 className="animate-spin w-5 h-5" /> : `Import ${jsonPreview?.validCount || 0} Questions`}
+                      </button>
+                   </div>
+                </motion.div>
+              </div>
+            )}
+         </AnimatePresence>,
+         document.body
+         )}
       </div>
     );
   }
@@ -632,19 +897,67 @@ const ManageQuestions = ({ examId: initialExamId, onBack, onSubViewChange }) => 
                    <p className="text-slate-500 text-xs font-bold flex items-center gap-1.5 mb-8 bg-slate-50 w-max px-3 py-1.5 rounded-lg border border-slate-100">
                       <Clock className="w-3.5 h-3.5 text-slate-400" /> {exam.duration} Minutes Duration
                    </p>
-                   <div className="mt-auto grid grid-cols-2 gap-3 pb-1">
-                      <button onClick={() => handleSelectExam(exam)} className="bg-[#1e58f0] hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl text-[13px] transition-colors flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20 hover:-translate-y-0.5">
-                         <Settings className="w-4 h-4"/> Manage Questions
-                      </button>
-                      <button onClick={() => handleDeleteExam(exam.id)} className="bg-rose-50 hover:bg-rose-500 text-rose-500 hover:text-white font-bold py-3.5 rounded-xl text-[13px] transition-all flex items-center justify-center gap-1.5 group/delete">
-                         <Trash2 className="w-4 h-4 group-hover/delete:scale-110 transition-transform"/> Delete
-                      </button>
-                   </div>
+                    <div className="mt-auto grid grid-cols-2 gap-3 pb-1">
+                       <button onClick={() => handleSelectExam(exam)} className="bg-[#1e58f0] hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl text-[13px] transition-colors flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20 hover:-translate-y-0.5">
+                          <Settings className="w-4 h-4"/> Manage Questions
+                       </button>
+                       <div className="grid grid-cols-2 gap-2">
+                          <button onClick={() => setEditingExam(exam)} className="bg-slate-50 hover:bg-slate-200 text-slate-600 font-bold py-3.5 rounded-xl text-[13px] transition-all flex items-center justify-center">
+                             <Edit3 className="w-4 h-4"/>
+                          </button>
+                          <button onClick={() => { if(confirm('Are you sure?')) handleDeleteExam(exam.id) }} className="bg-rose-50 hover:bg-rose-500 text-rose-500 hover:text-white font-bold py-3.5 rounded-xl text-[13px] transition-all flex items-center justify-center group/delete">
+                             <Trash2 className="w-4 h-4 group-hover/delete:scale-110 transition-transform"/>
+                          </button>
+                       </div>
+                    </div>
                 </div>
              ))}
           </div>
         )}
       </div>
+
+      {/* EDIT EXAM MODAL */}
+      {createPortal(
+      <AnimatePresence>
+          {editingExam && (
+            <div className="fixed inset-0 z-[600] flex items-center justify-center p-6">
+              <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} onClick={() => setEditingExam(null)} className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
+              <motion.div initial={{scale:0.9, opacity:0}} animate={{scale:1, opacity:1}} exit={{scale:0.9, opacity:0}} className="bg-white w-full max-w-md rounded-[2rem] p-8 relative z-10 shadow-2xl">
+                 <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-black text-slate-800">Edit Exam Details</h3>
+                    <button onClick={() => setEditingExam(null)} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X className="w-5 h-5 text-slate-400" /></button>
+                 </div>
+                 
+                 <form onSubmit={handleUpdateExam} className="space-y-6">
+                    <div>
+                       <label className="text-[10px] uppercase font-black text-slate-400 mb-1.5 ml-1 block tracking-widest">Exam Title</label>
+                       <input 
+                          className="input-premium w-full !bg-slate-50 !py-3.5 !rounded-xl" 
+                          value={editingExam.title} 
+                          onChange={e => setEditingExam({...editingExam, title: e.target.value})}
+                          placeholder="Exam Title"
+                       />
+                    </div>
+                    <div>
+                       <label className="text-[10px] uppercase font-black text-slate-400 mb-1.5 ml-1 block tracking-widest">Duration (Minutes)</label>
+                       <input 
+                          className="input-premium w-full !bg-slate-50 !py-3.5 !rounded-xl" 
+                          type="number"
+                          value={editingExam.duration} 
+                          onChange={e => setEditingExam({...editingExam, duration: e.target.value})}
+                          placeholder="Duration"
+                       />
+                    </div>
+                    <button disabled={processing} className="w-full bg-[#825dfa] hover:bg-[#6c48e8] text-white font-bold py-4 rounded-xl shadow-lg shadow-purple-500/20 transition-all active:scale-95">
+                       {processing ? <Loader2 className="w-5 h-5 animate-spin mx-auto"/> : 'Save Changes'}
+                    </button>
+                 </form>
+              </motion.div>
+            </div>
+          )}
+       </AnimatePresence>,
+       document.body
+       )}
     </div>
   );
 };
