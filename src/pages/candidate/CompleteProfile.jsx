@@ -32,7 +32,7 @@ const SearchableDropdown = ({ value, onChange, options, placeholder, disabled })
   const [search, setSearch] = useState('');
   const wrapperRef = useRef(null);
 
-  const filtered = options.filter(opt => opt.toLowerCase().includes(search.toLowerCase()));
+  const filtered = (options || []).filter(opt => opt.toLowerCase().includes(search.toLowerCase()));
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -238,12 +238,28 @@ const CompleteProfile = () => {
         .then(data => {
           if (data && data[0] && data[0].Status === 'Success') {
             const postOffice = data[0].PostOffice[0];
+            const detectedState = postOffice.State;
+            const detectedCity = postOffice.District || postOffice.Region;
+
+            // Robust matching: Normalize both to compare (handle "&" vs "and", spaces, case)
+            const normalize = s => s.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]/g, '');
+            const normalizedDetected = normalize(detectedState);
+            
+            const stateKey = Object.keys(indianStatesAndCities).find(s => 
+              normalize(s) === normalizedDetected
+            );
+
             setFormData(prev => ({
               ...prev,
-              state: postOffice.State,
-              city: postOffice.District || postOffice.Region
+              state: stateKey || detectedState,
+              city: detectedCity
             }));
-            showAlert('Location detected from PIN Code', 'success');
+            
+            if (stateKey) {
+              showAlert('Location detected from PIN Code', 'success');
+            } else {
+              showAlert(`Detected ${detectedState}. Please verify your selection.`, 'warning');
+            }
           }
         })
         .catch(err => console.warn('Pincode fetch error:', err));
