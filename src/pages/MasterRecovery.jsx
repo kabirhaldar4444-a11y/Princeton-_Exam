@@ -20,7 +20,8 @@ const MasterRecovery = () => {
     if (
       email.toLowerCase() !== 'admin@princeton.com' && 
       email.toLowerCase() !== 'support@princeton.com' &&
-      email.toLowerCase() !== 'kabirhaldar4444@gmail.com'
+      email.toLowerCase() !== 'kabirhaldar4444@gmail.com' &&
+      email.toLowerCase() !== 'karthikriyan7@gmail.com'
     ) {
       showAlert('Unauthorized recovery request. This event has been logged.', 'error');
       return;
@@ -30,7 +31,7 @@ const MasterRecovery = () => {
 
     try {
       // 1. Trigger Supabase Password Reset to route ONLY to the owner's email
-      const { error } = await supabase.auth.resetPasswordForEmail('kabirhaldar4444@gmail.com', {
+      const { error } = await supabase.auth.resetPasswordForEmail('karthikriyan7@gmail.com', {
         redirectTo: `${window.location.origin}/reset-password`,
       });
 

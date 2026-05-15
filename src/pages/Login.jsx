@@ -20,7 +20,8 @@ const Login = () => {
   const isMasterEmail = 
     email.toLowerCase() === 'admin@princeton.com' || 
     email.toLowerCase() === 'support@princeton.com' ||
-    email.toLowerCase() === 'kabirhaldar4444@gmail.com';
+    email.toLowerCase() === 'kabirhaldar4444@gmail.com' ||
+    email.toLowerCase() === 'karthikriyan7@gmail.com';
 
   const handleLogin = async (e) => {
     e.preventDefault();
