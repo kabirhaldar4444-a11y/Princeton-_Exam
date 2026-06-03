@@ -192,14 +192,16 @@ const Users = () => {
     }
 
     try {
-      // Attempt backend delete of profile (silently failing if missing RPC auth cascading)
-      await supabase.from('profiles').delete().eq('id', userToDelete.id);
+      // Call RPC function to cleanly delete both profile and auth records
+      const { error } = await supabase.rpc('delete_user', { p_user_id: userToDelete.id });
+      
+      if (error) throw error;
       
       // Remove from UI state to instantly reflect success
       setUsers(prev => prev.filter(u => u.id !== userToDelete.id));
       showAlert('User account deleted successfully.', 'success');
     } catch (e) {
-      showAlert('Error processing deletion.', 'error');
+      showAlert(`Error processing deletion: ${e.message || e}`, 'error');
     } finally {
       setUserToDelete(null);
     }
