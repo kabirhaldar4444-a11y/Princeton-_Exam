@@ -905,7 +905,7 @@ const ManageQuestions = ({ examId: initialExamId, onBack, onSubViewChange }) => 
                           <button onClick={() => setEditingExam(exam)} className="bg-slate-50 hover:bg-slate-200 text-slate-600 font-bold py-3.5 rounded-xl text-[13px] transition-all flex items-center justify-center">
                              <Edit3 className="w-4 h-4"/>
                           </button>
-                          <button onClick={() => { if(confirm('Are you sure?')) handleDeleteExam(exam.id) }} className="bg-rose-50 hover:bg-rose-500 text-rose-500 hover:text-white font-bold py-3.5 rounded-xl text-[13px] transition-all flex items-center justify-center group/delete">
+                          <button onClick={() => handleDeleteExam(exam.id)} className="bg-rose-50 hover:bg-rose-500 text-rose-500 hover:text-white font-bold py-3.5 rounded-xl text-[13px] transition-all flex items-center justify-center group/delete">
                              <Trash2 className="w-4 h-4 group-hover/delete:scale-110 transition-transform"/>
                           </button>
                        </div>

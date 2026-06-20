@@ -15,7 +15,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;   -- Required for crypt(), gen_salt(), 
 
 -- 1. TABLE: profiles
 CREATE TABLE IF NOT EXISTS public.profiles (
-  id                  UUID        REFERENCES auth.users NOT NULL PRIMARY KEY,
+  id                  UUID        REFERENCES auth.users ON DELETE CASCADE NOT NULL PRIMARY KEY,
   email               TEXT,
   full_name           TEXT,
   phone               TEXT,
@@ -59,6 +59,10 @@ ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS signature_url       TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS pan_card_url        TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS ip_address          TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS created_at          TIMESTAMPTZ DEFAULT TIMEZONE('utc'::TEXT, NOW());
+
+-- Enforce delete cascade for existing profile tables
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_id_fkey;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;
 
 -- Enforce role values and constraints
 ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
@@ -104,8 +108,8 @@ ALTER TABLE public.questions ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEF
 -- 4. TABLE: submissions
 CREATE TABLE IF NOT EXISTS public.submissions (
   id                   UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id              UUID        REFERENCES auth.users(id) NOT NULL,
-  exam_id              UUID        REFERENCES public.exams(id) NOT NULL,
+  user_id              UUID        REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  exam_id              UUID        REFERENCES public.exams(id) ON DELETE CASCADE NOT NULL,
   score                INTEGER     NOT NULL,
   total_questions      INTEGER     NOT NULL,
   answers              JSONB       NOT NULL,   -- question index → chosen option index
@@ -119,6 +123,12 @@ ALTER TABLE public.submissions ADD COLUMN IF NOT EXISTS submitted_at         TIM
 ALTER TABLE public.submissions ADD COLUMN IF NOT EXISTS admin_score_override INTEGER;
 ALTER TABLE public.submissions ADD COLUMN IF NOT EXISTS is_released          BOOLEAN DEFAULT FALSE;
 ALTER TABLE public.submissions ADD COLUMN IF NOT EXISTS created_at           TIMESTAMPTZ DEFAULT TIMEZONE('utc'::TEXT, NOW());
+
+-- Enforce delete cascade for existing submissions tables
+ALTER TABLE public.submissions DROP CONSTRAINT IF EXISTS submissions_user_id_fkey;
+ALTER TABLE public.submissions DROP CONSTRAINT IF EXISTS submissions_exam_id_fkey;
+ALTER TABLE public.submissions ADD CONSTRAINT submissions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.submissions ADD CONSTRAINT submissions_exam_id_fkey FOREIGN KEY (exam_id) REFERENCES public.exams(id) ON DELETE CASCADE;
 
 
 -- ============================================================================================================================
@@ -262,10 +272,13 @@ BEGIN
     RAISE EXCEPTION 'Access Denied: Only administrators can delete users.';
   END IF;
 
-  -- 1. Delete from public.profiles
+  -- 1. Delete from public.submissions
+  DELETE FROM public.submissions WHERE user_id = p_user_id;
+
+  -- 2. Delete from public.profiles
   DELETE FROM public.profiles WHERE id = p_user_id;
 
-  -- 2. Delete from auth.users (cascades to identities)
+  -- 3. Delete from auth.users (cascades to identities)
   DELETE FROM auth.users WHERE id = p_user_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
