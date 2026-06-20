@@ -250,6 +250,28 @@ GRANT EXECUTE ON FUNCTION public.create_candidate(TEXT, TEXT, TEXT, UUID) TO ser
 
 
 -- ============================================================================================================================
+-- SECTION 7.5: RPC — delete_user()
+-- ============================================================================================================================
+CREATE OR REPLACE FUNCTION public.delete_user(p_user_id UUID)
+RETURNS VOID AS $$
+BEGIN
+  -- Verify requester is an admin or super_admin
+  IF NOT (public.get_user_role() IN ('admin', 'super_admin')) THEN
+    RAISE EXCEPTION 'Access Denied: Only administrators can delete users.';
+  END IF;
+
+  -- 1. Delete from public.profiles
+  DELETE FROM public.profiles WHERE id = p_user_id;
+
+  -- 2. Delete from auth.users (cascades to identities)
+  DELETE FROM auth.users WHERE id = p_user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION public.delete_user(UUID) TO authenticated;
+
+
+-- ============================================================================================================================
 -- SECTION 8: RETROACTIVE IDENTITY REPAIR
 -- ============================================================================================================================
 INSERT INTO auth.identities (id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at)
