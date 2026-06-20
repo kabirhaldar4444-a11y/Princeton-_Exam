@@ -339,7 +339,7 @@ BEGIN
     v_admin_id,
     v_email,
     v_full_name,
-    'super_admin',
+    'admin',
     TRUE,
     TRUE,
     '{}'::UUID[]
