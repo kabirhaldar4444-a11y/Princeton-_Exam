@@ -525,7 +525,14 @@ ${GLOBAL_POLICIES_DECLARATION.trim()}
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">Phone Number *</label>
                 <div className="relative">
-                  <input type="tel" className="input-premium w-full !pl-[90px]" placeholder="98765 43210" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+                  <input 
+                    type="tel" 
+                    maxLength={10}
+                    className="input-premium w-full !pl-[90px]" 
+                    placeholder="9876543210" 
+                    value={formData.phone} 
+                    onChange={e => setFormData({...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10)})} 
+                  />
                   <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
                     <span className="text-slate-500 font-bold text-sm tracking-wide border-r border-slate-200/80 pr-3 h-6 flex items-center">IN +91</span>
                   </div>
@@ -559,25 +566,61 @@ ${GLOBAL_POLICIES_DECLARATION.trim()}
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">Identity Documents (Aadhaar & PAN) *</label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                 <div className="relative group">
+                 <div className="relative group h-[140px]">
                     <input type="file" accept="image/*" onChange={e => setFiles({...files, aadhaarFront: e.target.files[0]})} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
-                    <div className="p-6 h-full flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl text-center group-hover:border-primary-500 transition-all bg-white shadow-sm">
-                       <ImageIcon className="mx-auto w-6 h-6 text-slate-400 mb-2 group-hover:scale-110 transition-transform" />
-                       <span className="text-[10px] font-bold text-slate-500 uppercase">{files.aadhaarFront ? files.aadhaarFront.name : 'Aadhaar Front'}</span>
+                    <div className={`w-full h-full flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl text-center group-hover:border-primary-500 transition-all bg-white shadow-sm overflow-hidden ${files.aadhaarFront ? 'p-2' : 'p-6'}`}>
+                       {files.aadhaarFront ? (
+                         <div className="relative w-full h-full">
+                           <img src={URL.createObjectURL(files.aadhaarFront)} className="w-full h-full object-cover rounded-2xl" alt="Aadhaar Front Preview" />
+                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white rounded-2xl transition-all duration-200">
+                             <Upload className="w-5 h-5 mb-1" />
+                             <span className="text-[9px] font-black uppercase tracking-wider">Change Front</span>
+                           </div>
+                         </div>
+                       ) : (
+                         <>
+                           <ImageIcon className="mx-auto w-6 h-6 text-slate-400 mb-2 group-hover:scale-110 transition-transform" />
+                           <span className="text-[10px] font-bold text-slate-500 uppercase">Aadhaar Front</span>
+                         </>
+                       )}
                     </div>
                  </div>
-                 <div className="relative group">
+                 <div className="relative group h-[140px]">
                     <input type="file" accept="image/*" onChange={e => setFiles({...files, aadhaarBack: e.target.files[0]})} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
-                    <div className="p-6 h-full flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl text-center group-hover:border-primary-500 transition-all bg-white shadow-sm">
-                       <ImageIcon className="mx-auto w-6 h-6 text-slate-400 mb-2 group-hover:scale-110 transition-transform" />
-                       <span className="text-[10px] font-bold text-slate-500 uppercase">{files.aadhaarBack ? files.aadhaarBack.name : 'Aadhaar Back'}</span>
+                    <div className={`w-full h-full flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl text-center group-hover:border-primary-500 transition-all bg-white shadow-sm overflow-hidden ${files.aadhaarBack ? 'p-2' : 'p-6'}`}>
+                       {files.aadhaarBack ? (
+                         <div className="relative w-full h-full">
+                           <img src={URL.createObjectURL(files.aadhaarBack)} className="w-full h-full object-cover rounded-2xl" alt="Aadhaar Back Preview" />
+                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white rounded-2xl transition-all duration-200">
+                             <Upload className="w-5 h-5 mb-1" />
+                             <span className="text-[9px] font-black uppercase tracking-wider">Change Back</span>
+                           </div>
+                         </div>
+                       ) : (
+                         <>
+                           <ImageIcon className="mx-auto w-6 h-6 text-slate-400 mb-2 group-hover:scale-110 transition-transform" />
+                           <span className="text-[10px] font-bold text-slate-500 uppercase">Aadhaar Back</span>
+                         </>
+                       )}
                     </div>
                  </div>
-                 <div className="relative group">
+                 <div className="relative group h-[140px]">
                     <input type="file" accept="image/*" onChange={e => setFiles({...files, panCard: e.target.files[0]})} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
-                    <div className="p-6 h-full flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl text-center group-hover:border-primary-500 transition-all bg-white shadow-sm">
-                       <ImageIcon className="mx-auto w-6 h-6 text-slate-400 mb-2 group-hover:scale-110 transition-transform" />
-                       <span className="text-[10px] font-bold text-slate-500 uppercase">{files.panCard ? files.panCard.name : 'PAN Card'}</span>
+                    <div className={`w-full h-full flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl text-center group-hover:border-primary-500 transition-all bg-white shadow-sm overflow-hidden ${files.panCard ? 'p-2' : 'p-6'}`}>
+                       {files.panCard ? (
+                         <div className="relative w-full h-full">
+                           <img src={URL.createObjectURL(files.panCard)} className="w-full h-full object-cover rounded-2xl" alt="PAN Card Preview" />
+                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white rounded-2xl transition-all duration-200">
+                             <Upload className="w-5 h-5 mb-1" />
+                             <span className="text-[9px] font-black uppercase tracking-wider">Change PAN</span>
+                           </div>
+                         </div>
+                       ) : (
+                         <>
+                           <ImageIcon className="mx-auto w-6 h-6 text-slate-400 mb-2 group-hover:scale-110 transition-transform" />
+                           <span className="text-[10px] font-bold text-slate-500 uppercase">PAN Card</span>
+                         </>
+                       )}
                     </div>
                  </div>
               </div>

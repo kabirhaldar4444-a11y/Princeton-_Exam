@@ -94,9 +94,11 @@ CREATE TABLE IF NOT EXISTS public.questions (
   question_text  TEXT        NOT NULL,
   options        JSONB       NOT NULL,
   correct_option INTEGER     NOT NULL,   -- 0-indexed
+  explanation    TEXT        DEFAULT '',
   created_at     TIMESTAMPTZ DEFAULT TIMEZONE('utc'::TEXT, NOW()) NOT NULL
 );
 
+ALTER TABLE public.questions ADD COLUMN IF NOT EXISTS explanation TEXT DEFAULT '';
 ALTER TABLE public.questions ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::TEXT, NOW());
 
 -- 4. TABLE: submissions

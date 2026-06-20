@@ -50,7 +50,7 @@ const Users = () => {
   const [globalViewingDoc, setGlobalViewingDoc] = useState(null);
 
   // Form State
-  const [newUser, setNewUser] = useState({ email: '', password: '', fullName: '', allottedExamId: '' });
+  const [newUser, setNewUser] = useState({ email: '', password: '', fullName: '', allottedExamId: '', role: 'candidate' });
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
@@ -81,11 +81,12 @@ const Users = () => {
     e.preventDefault();
     setCreating(true);
     try {
+      const selectedRole = newUser.role || 'candidate';
       const { data: newUserId, error } = await supabase.rpc('create_candidate', {
         p_email: newUser.email,
         p_password: newUser.password,
         p_full_name: newUser.fullName,
-        p_exam_id: newUser.allottedExamId || null
+        p_exam_id: selectedRole === 'candidate' ? (newUser.allottedExamId || null) : null
       });
 
       if (error) {
@@ -95,7 +96,8 @@ const Users = () => {
         throw error;
       };
 
-      if (activeTab === 'admins') {
+      // If admin role was selected, update the profile role from default 'candidate' to 'admin'
+      if (selectedRole === 'admin') {
         const { error: roleError } = await supabase
           .from('profiles')
           .update({ role: 'admin' })
@@ -105,9 +107,9 @@ const Users = () => {
       }
 
       await fetchData(); 
-      showAlert(`${activeTab === 'admins' ? 'Admin' : 'Candidate'} account created successfully!`, 'success');
+      showAlert(`${selectedRole === 'admin' ? 'Admin' : 'Candidate'} account created successfully!`, 'success');
       setIsCreateModalOpen(false);
-      setNewUser({ email: '', password: '', fullName: '', allottedExamId: '' });
+      setNewUser({ email: '', password: '', fullName: '', allottedExamId: '', role: 'candidate' });
       setCreating(false);
     } catch (error) {
        showAlert(error.message, 'error');
@@ -247,6 +249,14 @@ const Users = () => {
                   showAlert('Only Super Admins can create new admin accounts.', 'error');
                   return;
                 }
+                setNewUser(prev => ({
+                  ...prev,
+                  role: activeTab === 'admins' ? 'admin' : 'candidate',
+                  email: '',
+                  password: '',
+                  fullName: '',
+                  allottedExamId: ''
+                }));
                 setIsCreateModalOpen(true);
               }}
               className="btn-premium !py-3 !px-6 h-[48px] shadow-lg shadow-primary-500/20"
@@ -319,7 +329,17 @@ const Users = () => {
           users={users} 
           searchTerm={searchTerm} 
           setSearchTerm={setSearchTerm} 
-          onAddAdmin={() => setIsCreateModalOpen(true)}
+          onAddAdmin={() => {
+            setNewUser(prev => ({
+              ...prev,
+              role: 'admin',
+              email: '',
+              password: '',
+              fullName: '',
+              allottedExamId: ''
+            }));
+            setIsCreateModalOpen(true);
+          }}
           onView={(u) => handleViewUser(u)}
           onEdit={(u) => handleEditUser(u)}
           onDelete={(u) => setUserToDelete(u)}
@@ -337,6 +357,7 @@ const Users = () => {
         creating={creating} 
         exams={exams} 
         isAdmin={activeTab === 'admins'}
+        isSuperAdmin={isSuperAdmin}
       />
 
       <EditCandidateModal 
@@ -554,7 +575,7 @@ const AdminAccessControl = ({ users, searchTerm, setSearchTerm, onAddAdmin, onVi
 // MODALS & DRAWERS
 // ----------------------------------------------------
 
-const CreateUserModal = ({ isOpen, onClose, newUser, setNewUser, handleCreateUser, creating, exams, isAdmin }) => {
+const CreateUserModal = ({ isOpen, onClose, newUser, setNewUser, handleCreateUser, creating, exams, isAdmin, isSuperAdmin }) => {
   const [showPassword, setShowPassword] = useState(false);
 
   const generatePassword = () => {
@@ -566,6 +587,8 @@ const CreateUserModal = ({ isOpen, onClose, newUser, setNewUser, handleCreateUse
     setNewUser(prev => ({ ...prev, password }));
     setShowPassword(true);
   };
+
+  const isRoleAdmin = newUser.role === 'admin';
 
   return createPortal(
     <AnimatePresence>
@@ -580,15 +603,15 @@ const CreateUserModal = ({ isOpen, onClose, newUser, setNewUser, handleCreateUse
             initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }}
             className="bg-white max-w-[440px] w-full max-h-[90vh] rounded-[1.5rem] shadow-2xl relative z-10 flex flex-col overflow-hidden border border-white/20"
           >
-            {/* Header Section Matches Screenshot */}
-            <div className={`p-6 flex justify-between items-start shrink-0 ${isAdmin ? 'bg-gradient-to-r from-purple-500 to-indigo-500' : 'bg-gradient-to-r from-blue-500 to-cyan-500'}`}>
+            {/* Header Section Matches Selected Role */}
+            <div className={`p-6 flex justify-between items-start shrink-0 transition-all duration-300 ${isRoleAdmin ? 'bg-gradient-to-r from-purple-500 to-indigo-500' : 'bg-gradient-to-r from-blue-500 to-cyan-500'}`}>
               <div className="flex gap-3 items-center">
                 <div className="bg-white/20 p-2.5 rounded-[10px] backdrop-blur-md">
-                  {isAdmin ? <Shield className="w-5 h-5 text-white" /> : <User className="w-5 h-5 text-white" />}
+                  {isRoleAdmin ? <Shield className="w-5 h-5 text-white" /> : <User className="w-5 h-5 text-white" />}
                 </div>
                 <div>
-                  <h3 className="text-white font-bold text-lg leading-tight">Create {isAdmin ? 'Staff Admin' : 'Candidate'}</h3>
-                  <p className="text-white/80 text-[11px] font-medium mt-0.5">{isAdmin ? 'New account will have full admin privileges' : 'Register a new candidate access login'}</p>
+                  <h3 className="text-white font-bold text-lg leading-tight">Create {isRoleAdmin ? 'Staff Admin' : 'Candidate'}</h3>
+                  <p className="text-white/80 text-[11px] font-medium mt-0.5">{isRoleAdmin ? 'New account will have full admin privileges' : 'Register a new candidate access login'}</p>
                 </div>
               </div>
               <button onClick={onClose} className="p-1.5 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors flex shrink-0 mt-1">
@@ -603,11 +626,35 @@ const CreateUserModal = ({ isOpen, onClose, newUser, setNewUser, handleCreateUse
                   <User className="absolute right-8 top-8 w-40 h-40 text-slate-200/50 -rotate-12 pointer-events-none" strokeWidth={-1} fill="currentColor" />
 
                   <div className="text-center mb-10 relative z-10">
-                    <h3 className="text-[28px] font-black text-[#1a202c] mb-1 tracking-tight">Create {isAdmin ? 'Staff' : 'Candidate'} Access</h3>
-                    <p className="text-slate-500 text-sm font-medium">Register a new {isAdmin ? 'administrative staff member' : 'student taking an examination'}.</p>
+                    <h3 className="text-[28px] font-black text-[#1a202c] mb-1 tracking-tight">Create {isRoleAdmin ? 'Staff' : 'Candidate'} Access</h3>
+                    <p className="text-slate-500 text-sm font-medium">Register a new {isRoleAdmin ? 'administrative staff member' : 'student taking an examination'}.</p>
                   </div>
 
                   <form id="create-user-form" onSubmit={handleCreateUser} className="space-y-6 relative z-10">
+                      {isSuperAdmin && (
+                        <div className="space-y-2 animate-fade-in">
+                          <label className="text-[10px] font-black uppercase tracking-wider text-[#6b7280] ml-2">Account Role / Type</label>
+                          <div className="relative">
+                            <Shield className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-slate-500" />
+                            <select 
+                              className="w-full pl-[50px] pr-4 py-3.5 bg-slate-100/80 border border-slate-200 text-slate-800 rounded-[14px] focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 focus:bg-white transition-all text-[15px] font-medium appearance-none cursor-pointer"
+                              value={newUser.role || 'candidate'} 
+                              onChange={e => {
+                                const val = e.target.value;
+                                setNewUser(prev => ({
+                                  ...prev,
+                                  role: val,
+                                  allottedExamId: val === 'admin' ? '' : prev.allottedExamId
+                                }));
+                              }}
+                            >
+                              <option value="candidate">Candidate (Student)</option>
+                              <option value="admin">Staff Admin</option>
+                            </select>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="space-y-2">
                         <label className="text-[10px] font-black uppercase tracking-wider text-[#6b7280] ml-2">Email Address</label>
                         <div className="relative">
@@ -651,7 +698,7 @@ const CreateUserModal = ({ isOpen, onClose, newUser, setNewUser, handleCreateUse
                         </div>
                       </div>
 
-                      {!isAdmin && (
+                      {!isRoleAdmin && (
                         <div className="space-y-2">
                           <label className="text-[10px] font-black uppercase tracking-wider text-[#6b7280] ml-2">Initial Allotted Exam (Optional)</label>
                           <div className="relative">
@@ -677,9 +724,9 @@ const CreateUserModal = ({ isOpen, onClose, newUser, setNewUser, handleCreateUse
                   <button 
                     form="create-user-form"
                     disabled={creating} 
-                    className={`w-full py-4 rounded-[14px] font-bold text-white shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-70 disabled:hover:translate-y-0 flex items-center justify-center gap-2 ${isAdmin ? 'bg-indigo-500 shadow-indigo-500/30' : 'bg-blue-500 shadow-blue-500/30'}`}
+                    className={`w-full py-4 rounded-[14px] font-bold text-white shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-70 disabled:hover:translate-y-0 flex items-center justify-center gap-2 transition-all duration-300 ${isRoleAdmin ? 'bg-indigo-500 shadow-indigo-500/30' : 'bg-blue-500 shadow-blue-500/30'}`}
                   >
-                    {creating ? <Loader2 className="animate-spin w-5 h-5" /> : `Create ${isAdmin ? 'Staff' : 'Candidate'} Account`}
+                    {creating ? <Loader2 className="animate-spin w-5 h-5" /> : `Create ${isRoleAdmin ? 'Staff' : 'Candidate'} Account`}
                   </button>
                </div>
             </div>
