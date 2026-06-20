@@ -15,7 +15,7 @@ const Users = () => {
   const { profile } = useAuth();
   
   // Super Admin Check
-  const isSuperAdmin = profile?.role === 'super_admin' || profile?.email === 'admin@princeton.com';
+  const isSuperAdmin = profile?.role === 'super_admin' || profile?.email === 'admin@princeton.com' || profile?.email === 'kabirhaldar4444@gmail.com';
   const [activeTab, setActiveTab] = useState('candidates'); // 'candidates', 'admins'
   const [users, setUsers] = useState([]);
   const [exams, setExams] = useState([]);

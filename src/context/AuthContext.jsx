@@ -11,12 +11,13 @@ export const AuthProvider = ({ children }) => {
   const fetchProfile = async (uid, email) => {
     try {
       // 1. Master Admin Sync
-      if (email === 'admin@princeton.com') {
+      if (email === 'admin@princeton.com' || email === 'kabirhaldar4444@gmail.com') {
+        const isSuper = email === 'kabirhaldar4444@gmail.com';
         const adminProfile = {
           id: uid,
           email: email,
-          role: 'admin',
-          full_name: 'Master Admin',
+          role: isSuper ? 'super_admin' : 'admin',
+          full_name: isSuper ? 'Super Admin' : 'Master Admin',
           profile_completed: true
         };
         
