@@ -159,6 +159,17 @@ const Login = () => {
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shimmer_2s_infinite] transition-transform" />
               </button>
             </div>
+
+            <div className="pt-3 text-center">
+              <button
+                type="button"
+                onClick={() => navigate('/admission')}
+                className="text-xs font-bold text-primary-600 hover:text-primary-700 transition-colors flex items-center justify-center gap-1.5 mx-auto"
+              >
+                <span>New Candidate? Submit Online Admission</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </form>
 
           <footer className="mt-6 pt-4 border-t border-slate-200/50 flex flex-col items-center gap-0">

@@ -19,6 +19,8 @@ import Profile from './pages/candidate/Profile';
 import MasterRecovery from './pages/MasterRecovery';
 import ResetPassword from './pages/ResetPassword';
 
+import AdmissionForm from './pages/candidate/AdmissionForm';
+
 function App() {
   const isConfigured = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
 
@@ -44,6 +46,7 @@ function App() {
         <Routes>
           {/* Public Routes */}
           <Route path="/login" element={<Login />} />
+          <Route path="/admission" element={<AdmissionForm />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/master-recovery" element={<MasterRecovery />} />
           <Route path="/reset-password" element={<ResetPassword />} />
