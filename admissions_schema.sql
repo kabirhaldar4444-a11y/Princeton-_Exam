@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS public.admissions (
   id                UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
   full_name         TEXT        NOT NULL,
   email             TEXT        NOT NULL,
-  phone             TEXT        NOT NULL,
+  phone             TEXT,
   course_name       TEXT        NOT NULL,
   pincode           TEXT,
   state             TEXT,
@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS public.admissions (
 ALTER TABLE public.admissions ADD COLUMN IF NOT EXISTS full_name         TEXT;
 ALTER TABLE public.admissions ADD COLUMN IF NOT EXISTS email             TEXT;
 ALTER TABLE public.admissions ADD COLUMN IF NOT EXISTS phone             TEXT;
+ALTER TABLE public.admissions ALTER COLUMN phone DROP NOT NULL;
 ALTER TABLE public.admissions ADD COLUMN IF NOT EXISTS course_name       TEXT;
 ALTER TABLE public.admissions ADD COLUMN IF NOT EXISTS pincode           TEXT;
 ALTER TABLE public.admissions ADD COLUMN IF NOT EXISTS state             TEXT;
@@ -123,19 +124,16 @@ BEGIN
     RAISE EXCEPTION 'User with email % is already registered in the system.', NEW.email;
   END IF;
 
-  -- Check if candidate phone exists in public.profiles
-  IF EXISTS (SELECT 1 FROM public.profiles WHERE TRIM(phone) = TRIM(NEW.phone)) THEN
-    RAISE EXCEPTION 'Candidate with phone number % already exists.', NEW.phone;
-  END IF;
+  -- Check if candidate phone exists in public.profiles (only if valid phone is provided)
+  IF NEW.phone IS NOT NULL AND TRIM(NEW.phone) != '' AND NEW.phone NOT LIKE 'NA-%' THEN
+    IF EXISTS (SELECT 1 FROM public.profiles WHERE TRIM(phone) = TRIM(NEW.phone)) THEN
+      RAISE EXCEPTION 'Candidate with phone number % already exists.', NEW.phone;
+    END IF;
 
-  -- Check if candidate email has an existing pending application
-  IF EXISTS (SELECT 1 FROM public.admissions WHERE LOWER(email) = LOWER(TRIM(NEW.email)) AND status = 'pending') THEN
-    RAISE EXCEPTION 'Candidate with email % already has a pending admission application.', NEW.email;
-  END IF;
-
-  -- Check if candidate phone has an existing pending application
-  IF EXISTS (SELECT 1 FROM public.admissions WHERE TRIM(phone) = TRIM(NEW.phone) AND status = 'pending') THEN
-    RAISE EXCEPTION 'Candidate with phone number % already exists.', NEW.phone;
+    -- Check if candidate phone has an existing pending application
+    IF EXISTS (SELECT 1 FROM public.admissions WHERE TRIM(phone) = TRIM(NEW.phone) AND status = 'pending') THEN
+      RAISE EXCEPTION 'Candidate with phone number % already exists.', NEW.phone;
+    END IF;
   END IF;
 
   RETURN NEW;
@@ -179,8 +177,11 @@ BEGIN
     RAISE EXCEPTION 'User with email % is already registered.', v_admission.email;
   END IF;
 
-  IF EXISTS (SELECT 1 FROM public.profiles WHERE TRIM(phone) = TRIM(v_admission.phone)) THEN
-    RAISE EXCEPTION 'Candidate with phone number % already exists.', v_admission.phone;
+  -- Check if phone already registered in profiles (only if phone is provided)
+  IF v_admission.phone IS NOT NULL AND TRIM(v_admission.phone) != '' AND v_admission.phone NOT LIKE 'NA-%' THEN
+    IF EXISTS (SELECT 1 FROM public.profiles WHERE TRIM(phone) = TRIM(v_admission.phone)) THEN
+      RAISE EXCEPTION 'Candidate with phone number % already exists.', v_admission.phone;
+    END IF;
   END IF;
 
   v_new_user_id := gen_random_uuid();
@@ -248,7 +249,7 @@ BEGIN
     v_new_user_id,
     v_admission.email,
     v_admission.full_name,
-    v_admission.phone,
+    CASE WHEN v_admission.phone IS NOT NULL AND v_admission.phone NOT LIKE 'NA-%' THEN v_admission.phone ELSE NULL END,
     v_admission.address,
     v_admission.state,
     v_admission.city,

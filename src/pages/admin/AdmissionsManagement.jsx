@@ -157,7 +157,7 @@ const AdmissionsManagement = () => {
     return (
       (item.full_name && item.full_name.toLowerCase().includes(q)) ||
       (item.email && item.email.toLowerCase().includes(q)) ||
-      (item.phone && item.phone.includes(q)) ||
+      (item.phone && !item.phone.startsWith('NA-') && item.phone.includes(q)) ||
       (item.course_name && item.course_name.toLowerCase().includes(q))
     );
   });
@@ -297,10 +297,12 @@ const AdmissionsManagement = () => {
                     <Eye className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                     <span className="truncate">{item.email}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <UserCheck className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span>+91 {item.phone}</span>
-                  </div>
+                  {item.phone && !item.phone.startsWith('NA-') && (
+                    <div className="flex items-center gap-2">
+                      <UserCheck className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span>+91 {item.phone}</span>
+                    </div>
+                  )}
                   {(item.city || item.state) && (
                     <div className="flex items-center gap-2 truncate">
                       <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
@@ -540,10 +542,12 @@ const AdmissionsManagement = () => {
                   <span className="text-slate-400">Email Address:</span>
                   <span className="font-semibold text-slate-800">{selectedAdmission.email}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Phone Number:</span>
-                  <span className="font-semibold text-slate-800">+91 {selectedAdmission.phone}</span>
-                </div>
+                {selectedAdmission.phone && !selectedAdmission.phone.startsWith('NA-') && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Phone Number:</span>
+                    <span className="font-semibold text-slate-800">+91 {selectedAdmission.phone}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-slate-400">Selected Course:</span>
                   <span className="font-semibold text-primary-600">{selectedAdmission.course_name}</span>

@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   User,
   Mail,
-  Phone,
   MapPin,
   Upload,
   Camera,
@@ -30,6 +29,7 @@ import SignatureCanvas from '../../components/SignatureCanvas';
 import { useAlert } from '../../context/AlertProvider';
 import { indianStatesAndCities } from '../../utils/indiaLocationData';
 import PMISLogo from '../../components/common/PMISLogo';
+import { generateAdmissionReport } from '../../utils/admissionEmailTemplate';
 
 // --- SEARCHABLE DROPDOWN COMPONENT (Matching CompleteProfile.jsx) ---
 const SearchableDropdown = ({ value, onChange, options, placeholder, disabled }) => {
@@ -443,12 +443,6 @@ const AdmissionForm = () => {
       return;
     }
 
-    const cleanPhone = formData.phone.replace(/\D/g, '');
-    if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
-      showAlert('Please enter a valid 10-digit Indian Mobile Number.', 'error');
-      return;
-    }
-
     if (!formData.courseName.trim()) {
       showAlert('Please enter your Applying Course Name.', 'warning');
       return;
@@ -473,6 +467,7 @@ const AdmissionForm = () => {
 
   // --- WEB3FORMS EMAIL NOTIFICATION ---
   const sendWeb3FormsNotification = async ({
+    admissionId,
     fullName,
     email,
     phone,
@@ -489,47 +484,23 @@ const AdmissionForm = () => {
     signatureUrl
   }) => {
     try {
-      const locationStr = [city, state].filter(Boolean).join(', ');
-      const formattedPhone = phone.startsWith('+91') ? phone : `+91 ${phone.replace(/\D/g, '')}`;
-
-      const messageContent = `
-----------------------------------------
-ADMISSION VERIFICATION REPORT
-----------------------------------------
-
-CANDIDATE INFORMATION:
-----------------------
-• Full Name: ${fullName}
-• Email ID: ${email}
-• Phone: ${formattedPhone}
-• Course Name: ${courseName}
-• PIN Code: ${pincode}
-• Location: ${locationStr || 'N/A'}
-• Residential Address: ${addressLine}
-• IP Address: ${ipAddress || 'Not Detected'}
-
-VERIFICATION DOCUMENTS & MEDIA:
--------------------------------
-• Live Video Statement:
-${videoUrl || 'N/A'}
-
-• Aadhaar Card (Front):
-${frontUrl || 'N/A'}
-
-• Aadhaar Card (Back):
-${backUrl || 'N/A'}
-
-• PAN Card:
-${panUrl || 'N/A'}
-
-• Digital Signature:
-${signatureUrl || 'N/A'}
-
-By proceeding, the candidate electronically signs and agrees to all terms above.
-----------------------------------------
-
-Submitted via Princeton Professionals Exam Portal
-`.trim();
+      const messageContent = generateAdmissionReport({
+        admissionId,
+        fullName,
+        email,
+        phone,
+        courseName,
+        pincode,
+        state,
+        city,
+        addressLine,
+        ipAddress,
+        videoUrl,
+        frontUrl,
+        backUrl,
+        panUrl,
+        signatureUrl
+      });
 
       const accessKey =
         import.meta.env.VITE_WEB3FORMS_KEY ||
@@ -541,9 +512,10 @@ Submitted via Princeton Professionals Exam Portal
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({
           access_key: accessKey,
-          subject: `Admission Form Submitted — ${fullName}`,
-          from_name: 'Princeton Exam Portal',
+          name: fullName,
           email: email,
+          subject: `Admission Form Submitted — ${fullName}`,
+          from_name: 'Princeton Professional Exam Portal',
           message: messageContent
         })
       });
@@ -606,6 +578,7 @@ Submitted via Princeton Professionals Exam Portal
       const fullAddress = `${formData.addressLine ? formData.addressLine + ', ' : ''}${formData.city ? formData.city + ', ' : ''}${formData.state ? formData.state + ' - ' : ''}${formData.pincode}`;
 
       const newAdmissionId = crypto.randomUUID();
+      const fallbackPhone = formData.phone ? formData.phone.replace(/\D/g, '') : `NA-${newAdmissionId}`;
 
       const { error } = await supabase
         .from('admissions')
@@ -613,7 +586,7 @@ Submitted via Princeton Professionals Exam Portal
           id: newAdmissionId,
           full_name: formData.fullName.trim(),
           email: formData.email.toLowerCase().trim(),
-          phone: formData.phone.replace(/\D/g, ''),
+          phone: fallbackPhone,
           course_name: formData.courseName.trim(),
           address: fullAddress.trim(),
           aadhaar_front_url: frontUrl,
@@ -630,9 +603,10 @@ Submitted via Princeton Professionals Exam Portal
 
       // Send Web3Forms Email Notification
       sendWeb3FormsNotification({
+        admissionId: newAdmissionId,
         fullName: formData.fullName.trim(),
         email: formData.email.toLowerCase().trim(),
-        phone: formData.phone,
+        phone: formData.phone || '',
         courseName: formData.courseName.trim(),
         pincode: formData.pincode,
         state: formData.state,
@@ -694,10 +668,6 @@ Submitted via Princeton Professionals Exam Portal
             <div className="flex justify-between border-b border-slate-200/80 pb-2">
               <span className="text-slate-400">Email Address:</span>
               <span className="font-bold text-slate-900">{formData.email}</span>
-            </div>
-            <div className="flex justify-between border-b border-slate-200/80 pb-2">
-              <span className="text-slate-400">Phone Number:</span>
-              <span className="font-bold text-slate-900">+91 {formData.phone}</span>
             </div>
             <div className="flex justify-between border-b border-slate-200/80 pb-2">
               <span className="text-slate-400">Selected Course:</span>
@@ -797,44 +767,19 @@ Submitted via Princeton Professionals Exam Portal
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4 flex items-center gap-0.5">
-                      Phone Number <span className="text-red-500 font-bold text-xs">*</span>
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="tel"
-                        maxLength={10}
-                        className="input-premium w-full !pl-[90px]"
-                        placeholder="Enter Phone Number"
-                        value={formData.phone}
-                        onChange={(e) =>
-                          setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })
-                        }
-                      />
-                      <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
-                        <span className="text-slate-500 font-bold text-sm tracking-wide border-r border-slate-200/80 pr-3 h-6 flex items-center">
-                          IN +91
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Applying Course Input (Text Box) */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4 flex items-center gap-0.5">
-                      Applying Course <span className="text-red-500 font-bold text-xs">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Enter Course Name"
-                      className="input-premium w-full"
-                      value={formData.courseName}
-                      onChange={(e) => setFormData({ ...formData, courseName: e.target.value })}
-                    />
-                  </div>
+                {/* Applying Course Input (Text Box) */}
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4 flex items-center gap-0.5">
+                    Applying Course <span className="text-red-500 font-bold text-xs">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Enter Course Name"
+                    className="input-premium w-full"
+                    value={formData.courseName}
+                    onChange={(e) => setFormData({ ...formData, courseName: e.target.value })}
+                  />
                 </div>
 
                 {/* Step 1 Action Button */}
@@ -1102,11 +1047,11 @@ Submitted via Princeton Professionals Exam Portal
                           <div className="text-xs md:text-sm leading-relaxed text-slate-800 font-serif bg-slate-50 p-6 md:p-8 rounded-2xl border border-slate-200/80 shadow-inner">
                             {scriptLanguage === 'en' ? (
                               <p>
-                                "My name is <span className="font-bold text-slate-900 not-italic">{formData.fullName || '[Your Name]'}</span>, and my registered email address is <span className="font-bold text-slate-900 not-italic">{formData.email || '[Your Email]'}</span>. I purposely recorded this video statement to verify my profile, confirm my identity, and acknowledge my enrollment in Princeton Professional's training program (available at princetonprofessional.in). I am purchasing this course for personal skill enhancement, professional development, and career growth. I fully accept and understand that Princeton Professional is only an educational skills-based course training provider and never offers a job promise, job placement assurance, or particular career assurances upon course completion. Furthermore, I certify that I will not file any chargebacks or complaints regarding this transaction in the future. I also promise not to share or distribute any copyrighted course materials supplied to me throughout this program. This statement is made freely, knowingly, and without pressure."
+                                "My name is <span className="font-bold text-slate-900 not-italic">{formData.fullName || '[Your Name]'}</span>, and my registered email address is <span className="font-bold text-slate-900 not-italic">{formData.email || '[Your Email]'}</span>. I purposely recorded this video statement to verify my profile, confirm my identity, and acknowledge my enrollment in Princeton Professional's training program (available at princetonprofessional.com). I am purchasing this course for personal skill enhancement, professional development, and career growth. I fully accept and understand that Princeton Professional is only an educational skills-based course training provider and never offers a job promise, job placement assurance, or particular career assurances upon course completion. Furthermore, I certify that I will not file any chargebacks or complaints regarding this transaction in the future. I also promise not to share or distribute any copyrighted course materials supplied to me throughout this program. This statement is made freely, knowingly, and without pressure."
                               </p>
                             ) : (
                               <p>
-                                "मेरा नाम <span className="font-bold text-slate-900 not-italic">{formData.fullName || '[आपका नाम]'}</span> है और मेरा रजिस्टर्ड ईमेल एड्रेस <span className="font-bold text-slate-900 not-italic">{formData.email || '[आपका ईमेल]'}</span> है। मैंने यह वीडियो STATEMENT जान-बूझकर रिकॉर्ड किया है ताकि मैं अपनी प्रोफ़ाइल वेरिफ़ाई कर सकूँ, अपनी पहचान कन्फ़र्म कर सकूँ और Princeton Professional के ट्रेनिंग प्रोग्राम (जो princetonprofessional.in पर उपलब्ध है) में अपने एनरोलमेंट की पुष्टि कर सकूँ। मैं यह कोर्स अपनी पर्सनल स्किल बढ़ाने, प्रोफ़ेशनल DEVELOPMENT और करियर में आगे बढ़ने के लिए खरीद रहा हूँ। मैं पूरी तरह से मानता और समझता हूँ कि Princeton Professional सिर्फ़ एक एजुकेशनल स्किल-बेस्ड कोर्स ट्रेनिंग प्रोवाइडर है और कोर्स पूरा होने पर कभी भी नौकरी का वादा, नौकरी मिलने की गारंटी या किसी खास करियर की गारंटी नहीं देता है। इसके अलावा, मैं यह सर्टिफ़ाई करता हूँ कि भविष्य में इस ट्रांज़ैक्शन के बारे में कोई चार्जबैक या शिकायत नहीं करूँगा। मैं यह भी वादा करता हूँ कि इस प्रोग्राम के दौरान मुझे दिए गए किसी भी कॉपीराइट वाले कोर्स मटीरियल को शेयर या डिस्ट्रीब्यूट नहीं करूँगा। यह STATEMENT बिना किसी दबाव के, पूरी जानकारी के साथ और अपनी मर्ज़ी से दिया जा रहा है।"
+                                "मेरा नाम <span className="font-bold text-slate-900 not-italic">{formData.fullName || '[आपका नाम]'}</span> है और मेरा रजिस्टर्ड ईमेल एड्रेस <span className="font-bold text-slate-900 not-italic">{formData.email || '[आपका ईमेल]'}</span> है। मैंने यह वीडियो STATEMENT जान-बूझकर रिकॉर्ड किया है ताकि मैं अपनी प्रोफ़ाइल वेरिफ़ाई कर सकूँ, अपनी पहचान कन्फ़र्म कर सकूँ और Princeton Professional के ट्रेनिंग प्रोग्राम (जो princetonprofessional.com पर उपलब्ध है) में अपने एनरोलमेंट की पुष्टि कर सकूँ। मैं यह कोर्स अपनी पर्सनल स्किल बढ़ाने, प्रोफ़ेशनल DEVELOPMENT और करियर में आगे बढ़ने के लिए खरीद रहा हूँ। मैं पूरी तरह से मानता और समझता हूँ कि Princeton Professional सिर्फ़ एक एजुकेशनल स्किल-बेस्ड कोर्स ट्रेनिंग प्रोवाइडर है और कोर्स पूरा होने पर कभी भी नौकरी का वादा, नौकरी मिलने की गारंटी या किसी खास करियर की गारंटी नहीं देता है। इसके अलावा, मैं यह सर्टिफ़ाई करता हूँ कि भविष्य में इस ट्रांज़ैक्शन के बारे में कोई चार्जबैक या शिकायत नहीं करूँगा। मैं यह भी वादा करता हूँ कि इस प्रोग्राम के दौरान मुझे दिए गए किसी भी कॉपीराइट वाले कोर्स मटीरियल को शेयर या डिस्ट्रीब्यूट नहीं करूँगा। यह STATEMENT बिना किसी दबाव के, पूरी जानकारी के साथ और अपनी मर्ज़ी से दिया जा रहा है।"
                               </p>
                             )}
                           </div>
