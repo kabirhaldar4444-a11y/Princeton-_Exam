@@ -124,7 +124,6 @@ const AdmissionForm = () => {
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
-    phone: '',
     courseName: '',
     pincode: '',
     state: '',
@@ -470,7 +469,6 @@ const AdmissionForm = () => {
     admissionId,
     fullName,
     email,
-    phone,
     courseName,
     pincode,
     state,
@@ -488,7 +486,6 @@ const AdmissionForm = () => {
         admissionId,
         fullName,
         email,
-        phone,
         courseName,
         pincode,
         state,
@@ -578,7 +575,7 @@ const AdmissionForm = () => {
       const fullAddress = `${formData.addressLine ? formData.addressLine + ', ' : ''}${formData.city ? formData.city + ', ' : ''}${formData.state ? formData.state + ' - ' : ''}${formData.pincode}`;
 
       const newAdmissionId = crypto.randomUUID();
-      const fallbackPhone = formData.phone ? formData.phone.replace(/\D/g, '') : `NA-${newAdmissionId}`;
+      const fallbackPhone = `NA-${newAdmissionId}`;
 
       const { error } = await supabase
         .from('admissions')
@@ -606,7 +603,6 @@ const AdmissionForm = () => {
         admissionId: newAdmissionId,
         fullName: formData.fullName.trim(),
         email: formData.email.toLowerCase().trim(),
-        phone: formData.phone || '',
         courseName: formData.courseName.trim(),
         pincode: formData.pincode,
         state: formData.state,

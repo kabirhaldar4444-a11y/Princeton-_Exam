@@ -22,9 +22,9 @@ export const generateAdmissionReport = ({
   signatureUrl
 }) => {
   const locationStr = [city, state].filter(Boolean).join(', ');
-  const formattedPhone = phone
-    ? (phone.startsWith('+91') ? phone : `+91 ${phone.replace(/\D/g, '')}`)
-    : 'N/A';
+  const phoneLine = phone && !phone.startsWith('NA-')
+    ? `\n• Phone: ${phone.startsWith('+91') ? phone : `+91 ${phone.replace(/\D/g, '')}`}`
+    : '';
 
   return `
 ----------------------------------------
@@ -36,8 +36,7 @@ APPLICATION & CANDIDATE DETAILS:
 • Application Reference ID: ${admissionId || 'N/A'}
 • Application Status: Pending Admin Approval
 • Full Name: ${fullName}
-• Email ID: ${email}
-• Phone: ${formattedPhone}
+• Email ID: ${email}${phoneLine}
 • Course Name: ${courseName || 'N/A'}
 • PIN Code: ${pincode || 'N/A'}
 • Location: ${locationStr || 'N/A'}
